@@ -20,27 +20,27 @@ from openlava.lsblib import lsb_init, lsb_hostinfo, HOST_STAT_UNAVAIL, HOST_STAT
 import sys
 
 if lsb_init("Hosts") < 0:
-		lsb_perror("lsb_init")
-		sys.exit(-1)
+        lsb_perror("lsb_init")
+        sys.exit(-1)
 
 hosts=lsb_hostinfo()
 if hosts==None:
-	lsb_perror("lsb_hostinfo");
-	sys.exit(-1)
+    lsb_perror("lsb_hostinfo");
+    sys.exit(-1)
 
 print "HOST_NAME    STATUS    JL/U  NJOBS  RUN  SSUSP USUSP"
 for h in hosts:
-	if h.hStatus & HOST_STAT_UNAVAIL:
-		status="unavail"
-	elif h.hStatus & HOST_STAT_UNREACH:
-		status="unreach"
-	elif h.hStatus & ( HOST_STAT_BUSY | HOST_STAT_WIND | HOST_STAT_DISABLED | HOST_STAT_LOCKED | HOST_STAT_FULL | HOST_STAT_NO_LIM ):
-		status="closed"
-	else:
-		status="ok"
-	if h.userJobLimit < INFINIT_INT:
-		lim=h.userJobLimit
-	else:
-		lim="-"
+    if h.hStatus & HOST_STAT_UNAVAIL:
+        status="unavail"
+    elif h.hStatus & HOST_STAT_UNREACH:
+        status="unreach"
+    elif h.hStatus & ( HOST_STAT_BUSY | HOST_STAT_WIND | HOST_STAT_DISABLED | HOST_STAT_LOCKED | HOST_STAT_FULL | HOST_STAT_NO_LIM ):
+        status="closed"
+    else:
+        status="ok"
+    if h.userJobLimit < INFINIT_INT:
+        lim=h.userJobLimit
+    else:
+        lim="-"
 
-	print "%-18.18s %-9s %-4s %7d  %4d  %4d  %4d" % ( h.host, status, lim, h.numJobs, h.numRUN, h.numSSUSP, h.numUSUSP)
+    print "%-18.18s %-9s %-4s %7d  %4d  %4d  %4d" % ( h.host, status, lim, h.numJobs, h.numRUN, h.numSSUSP, h.numUSUSP)

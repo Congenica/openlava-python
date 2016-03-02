@@ -21,8 +21,8 @@ import sys
 
 
 if lsb_init("jobs") < 0:
-	ls_perror("lsb_init")
-	sys.exit(-1)
+    ls_perror("lsb_init")
+    sys.exit(-1)
 
 numJobs=lsb_openjobinfo()
 if numJobs < 0:
@@ -31,9 +31,9 @@ if numJobs < 0:
 
 print "All jobs submitted by all users:"
 for i in range(numJobs):
-	job = lsb_readjobinfo()
-	if job == None:
-		ls_perror("lsb_readjobinfo")
-		sys.exit(-1)
-	print "Job ID: %s User: %s Submit Host: %s" % (job.jobId, job.user, job.fromHost)
+    job = lsb_readjobinfo()
+    if job == None:
+        ls_perror("lsb_readjobinfo")
+        sys.exit(-1)
+    print "Job ID: %s User: %s Submit Host: %s" % (job.jobId, job.user, job.fromHost)
 lsb_closejobinfo()

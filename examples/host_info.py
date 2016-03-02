@@ -19,23 +19,23 @@ from openlava.lslib import ls_gethostinfo
 import sys
 hostinfo = ls_gethostinfo()
 if hostinfo == None:
-	print "Unable to get hostinfo"
-	sys.exit(1)
+    print "Unable to get hostinfo"
+    sys.exit(1)
 
 print "%-11.11s %8.8s %8.8s %6.6s %6.6s %9.9s" % (  "HOST_NAME", "type", "model",  "maxMem", "ncpus", "RESOURCES")
 
 for host in hostinfo:
-	sys.stdout.write( "%-11.11s %8.8s %8.8s " % ( host.hostName, host.hostType, host.hostModel ) )
-	if (host.maxMem > 0):
-		sys.stdout.write("%6d " % host.maxMem)
-	else:
-		sys.stdout.write("%6.6s " % "-")
+    sys.stdout.write( "%-11.11s %8.8s %8.8s " % ( host.hostName, host.hostType, host.hostModel ) )
+    if (host.maxMem > 0):
+        sys.stdout.write("%6d " % host.maxMem)
+    else:
+        sys.stdout.write("%6.6s " % "-")
 
 
-	if (host.maxCpus > 0):
-		sys.stdout.write("%6d " % host.maxCpus)
-	else:
-		sys.stdout.write("%6.6s" % "-")
-	for res in host.resources:
-		sys.stdout.write(" %s" % res)
-	sys.stdout.write("\n")
+    if (host.maxCpus > 0):
+        sys.stdout.write("%6d " % host.maxCpus)
+    else:
+        sys.stdout.write("%6.6s" % "-")
+    for res in host.resources:
+        sys.stdout.write(" %s" % res)
+    sys.stdout.write("\n")

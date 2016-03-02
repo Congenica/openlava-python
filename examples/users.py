@@ -20,12 +20,12 @@ from openlava.lsblib import lsb_userinfo, lsb_init
 import sys
 
 if lsb_init("users") < 0:
-	ls_perror("lsb_init")
-	sys.exit(-1)
+    ls_perror("lsb_init")
+    sys.exit(-1)
 
 users=lsb_userinfo()
 if users==None:
-	ls_perror("lsb_userinfo")
+    ls_perror("lsb_userinfo")
 print "User Information:"
 for u in users:
-	print "User: %s, Pend: %s, Running: %s, Suspended: %s" % (u.user, u.numPEND, u.numRUN, u.numSSUSP+u.numUSUSP)
+    print "User: %s, Pend: %s, Running: %s, Suspended: %s" % (u.user, u.numPEND, u.numRUN, u.numSSUSP+u.numUSUSP)

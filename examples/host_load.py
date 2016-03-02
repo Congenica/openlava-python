@@ -19,23 +19,23 @@ from openlava.lslib import ls_load,LS_ISUNAVAIL, LS_ISBUSY, LS_ISLOCKED, R1M, IN
 import sys
 hosts = ls_load()
 if hosts == None:
-	print "Unable to get host load"
-	sys.exit(1)
+    print "Unable to get host load"
+    sys.exit(1)
 print "%-15.15s %6.6s %6.6s" % ("HOST_NAME", "status", "r1m")
 
 for host in hosts:
 
-	sys.stdout.write( "%-11.11s " % host.hostName )
-	if (LS_ISUNAVAIL(host.status)):
-		sys.stdout.write("%6.6s " % "unavail")
-	elif LS_ISBUSY(host.status):
-		sys.stdout.write("%6.6s " % "busy")
-	elif LS_ISLOCKED(host.status):
-		sys.stdout.write("%6.6s " % "locked")
-	else:
-		sys.stdout.write("%6.6s " % "ok")
+    sys.stdout.write( "%-11.11s " % host.hostName )
+    if (LS_ISUNAVAIL(host.status)):
+        sys.stdout.write("%6.6s " % "unavail")
+    elif LS_ISBUSY(host.status):
+        sys.stdout.write("%6.6s " % "busy")
+    elif LS_ISLOCKED(host.status):
+        sys.stdout.write("%6.6s " % "locked")
+    else:
+        sys.stdout.write("%6.6s " % "ok")
 
-	if host.li[R1M] >= INFINIT_LOAD:
-		print "%6.6s " % "-"
-	else:
-		print "%6.6s " % host.li[R1M]
+    if host.li[R1M] >= INFINIT_LOAD:
+        print "%6.6s " % "-"
+    else:
+        print "%6.6s " % host.li[R1M]

@@ -19,22 +19,22 @@ from openlava.lslib import ls_perror, INFINIT_INT
 from openlava.lsblib import lsb_init, lsb_queueinfo
 
 if lsb_init("queue info")<0:
-	lsb_perror("lsb_init() failed")
-	sys.exit(-1)
+    lsb_perror("lsb_init() failed")
+    sys.exit(-1)
 
 
 qlist=lsb_queueinfo()
 if qlist==None:
-	lsb_perror("lsb_queueinfo() failed")
-	sys.exit(-1)
+    lsb_perror("lsb_queueinfo() failed")
+    sys.exit(-1)
 
 for q in qlist:
-	max_slots="unlimited"
-	if q.maxJobs<INFINIT_INT:
-		max_slots=q.maxJobs
+    max_slots="unlimited"
+    if q.maxJobs<INFINIT_INT:
+        max_slots=q.maxJobs
 
-	print "Information about %s queue:" % q.queue
-	print " Description: %s" % q.description
-	print " Priority: %d         Nice: %d:" % (q.priority, q.nice)
-	print " Max Job Slots: %s" % max_slots
-	print " Job slot statistics: PEND(%d) RUN(%d) SUSP(%d) TOTAL(%d)." % ( q.numPEND, q.numRUN, q.numSSUSP+q.numUSUSP, q.numJobs)
+    print "Information about %s queue:" % q.queue
+    print " Description: %s" % q.description
+    print " Priority: %d         Nice: %d:" % (q.priority, q.nice)
+    print " Max Job Slots: %s" % max_slots
+    print " Job slot statistics: PEND(%d) RUN(%d) SUSP(%d) TOTAL(%d)." % ( q.numPEND, q.numRUN, q.numSSUSP+q.numUSUSP, q.numJobs)
