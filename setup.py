@@ -14,6 +14,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with openlava-python.  If not, see <http://www.gnu.org/licenses/>.
+
+#this only works with --inplace for now? no idea why
+#python setup.py build_ext --inplace
+
 import os, os.path
 import glob
 from distutils.core import setup
