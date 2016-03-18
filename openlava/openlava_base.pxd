@@ -654,6 +654,8 @@ cdef extern from "lsbatch.h":
 
 cdef extern from "lsf.h":
 
+    int LSF_RLIMIT_RSS
+
     extern enum valueType: LS_BOOLEAN, LS_NUMERIC, LS_STRING, LS_EXTERNAL
     extern enum orderType: INCR, DECR, NA
 
