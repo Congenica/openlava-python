@@ -89,7 +89,7 @@ cdef extern from "lsbatch.h":
         int    maxNumProcessors
         char   *loginShell
         int    userPriority
-        
+
     extern struct hostInfoEnt:
         char   *host
         int    hStatus
@@ -112,7 +112,7 @@ cdef extern from "lsbatch.h":
         float *realLoad
         int   numRESERVE
         int   chkSig
-    
+
     extern struct jRusage:
         int mem
         int swap
@@ -122,7 +122,7 @@ cdef extern from "lsbatch.h":
         pidInfo *pidInfo
         int npgids
         int *pgid
-        
+
     extern struct jobInfoEnt:
         LS_LONG_INT jobId
         char    *user
@@ -242,7 +242,7 @@ cdef extern from "lsbatch.h":
         int    numSSUSP
         int    numUSUSP
         int    numRESERVE
-        
+
     extern struct xFile:
         char subFn[256]
         char execFn[256]
@@ -632,24 +632,25 @@ cdef extern from "lsbatch.h":
 
     extern void          lsb_closejobinfo()
     extern int           lsb_deletejob (LS_LONG_INT jobId, int times, int options)
-    extern eventRec 	*lsb_geteventrec(FILE * log_fp, int * lineNum)
-    extern int          lsb_hostcontrol(char *host, int opCode) 
-    extern hostInfoEnt     *lsb_hostinfo(char **hosts, int *numHosts)
-    extern int          lsb_init (char *appName)
-    extern LS_LONG_INT      lsb_modify (submit *, submitReply *, LS_LONG_INT)
-    extern int          lsb_openjobinfo (long, char *, char *, char *, char *,int)
-    extern char        *lsb_peekjob(unsigned long jobId)
+    extern eventRec     *lsb_geteventrec(FILE * log_fp, int * lineNum)
+    extern int           lsb_hostcontrol(char *host, int opCode)
+    extern hostInfoEnt  *lsb_hostinfo(char **hosts, int *numHosts)
+    extern int           lsb_init (char *appName)
+    extern LS_LONG_INT   lsb_modify (submit *, submitReply *, LS_LONG_INT)
+    extern int           lsb_openjobinfo (long, char *, char *, char *, char *,int)
+    extern jobInfoHead  *lsb_openjobinfo_a(long, char *, char *, char *, char *, int)
+    extern char         *lsb_peekjob(unsigned long jobId)
     extern char         *lsb_pendreason (int numReasons, int *rsTb, jobInfoHead *jInfoH, loadIndexLog *ld)
-    extern void lsb_perror(char *)
-    extern int         lsb_queuecontrol(char *queue, int opCode)
-    extern queueInfoEnt     *lsb_queueinfo (char **queues, int *numQueues, char *host, char *userName, int options)
-    extern jobInfoEnt     *lsb_readjobinfo( int * )
-    extern int          lsb_requeuejob(jobrequeue * reqPtr)
-    extern int         lsb_reconfig(int) 
-    extern int         lsb_signaljob (LS_LONG_INT jobId, int sigValue)
-    extern LS_LONG_INT     lsb_submit ( submit * subPtr, submitReply * repPtr)
-    extern char * lsb_sysmsg()
-    extern userInfoEnt    *lsb_userinfo(char **users, int *numUsers)
+    extern void          lsb_perror(char *)
+    extern int           lsb_queuecontrol(char *queue, int opCode)
+    extern queueInfoEnt *lsb_queueinfo (char **queues, int *numQueues, char *host, char *userName, int options)
+    extern jobInfoEnt   *lsb_readjobinfo( int * )
+    extern int           lsb_requeuejob(jobrequeue * reqPtr)
+    extern int           lsb_reconfig(int)
+    extern int           lsb_signaljob (LS_LONG_INT jobId, int sigValue)
+    extern LS_LONG_INT   lsb_submit ( submit * subPtr, submitReply * repPtr)
+    extern char         *lsb_sysmsg()
+    extern userInfoEnt  *lsb_userinfo(char **users, int *numUsers)
     extern char         *lsb_suspreason (int, int, loadIndexLog *)
 
 cdef extern from "lsf.h":
@@ -721,7 +722,7 @@ cdef extern from "lsf.h":
         orderType orderType
         int  flags
         int  interval
-        
+
     extern clusterInfo *ls_clusterinfo(char *resreq, int *numclusters, char **clusterlist, int listsize, int options)
     extern char         *ls_getclustername()
     extern float         *ls_gethostfactor(char *hostname)
@@ -734,6 +735,6 @@ cdef extern from "lsf.h":
     extern hostLoad     *ls_loadinfo(char *resreq, int *numhosts,int options, char *fromhost, char **hostlist,int listsize, char ***indxnamelist)
     extern void             ls_perror(char *usrMsg)
     extern char            *ls_sysmsg()
-    
-    
+
+
 
