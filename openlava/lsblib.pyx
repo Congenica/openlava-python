@@ -68,11 +68,11 @@ cimport openlava_base
 from openlava_base cimport LSF_RLIMIT_RSS
 from traceback import print_stack
 from libc.stdlib cimport realloc, malloc, free
-from libc.string cimport strcmp, memset, strcpy
+from libc.string cimport strcmp, memset, strcpy, memcpy
 from cpython.string cimport PyString_AsString
 from cpython cimport bool
 from openlava.lslib import ls_perror, LSF_RLIM_NLIMITS, DEFAULT_RLIMIT
-
+import time
 
 cdef extern from "Python.h":
     ctypedef struct FILE
@@ -1492,7 +1492,7 @@ Modifies an existing job
     job_id=jobSubReq._modify(jobSubReply, jobId)
     return job_id
 
-def lsb_openjobinfo(job_id=0, job_name="", user="all", queue="", host="", options=CUR_JOB):
+def lsb_openjobinfo(job_id=0, job_name="", user="all", queue="", host="", options=ALL_JOB):
     """openlava.lsblib.lsb_openjobinfo(job_id=0, job_name="", user="all", queue="", host="", options=0)
 Get information about jobs that match the specified criteria.
 
@@ -1524,11 +1524,19 @@ Get information about jobs that match the specified criteria.
         print_stack()
         raise Exception("closejobinfo has not been called after previous openjobinfo call")
     _OPENJOBINFO_COUNT = True
-    cdef int numJob
-    numJobs=openlava_base.lsb_openjobinfo(job_id,job_name,user,queue,host,options)
-    return numJobs
+    cdef jobInfoHead * job_info_head
+    #numJobs=openlava_base.lsb_openjobinfo(job_id,job_name,user,queue,host,options)
+    #return numJobs
+    job_info_head = openlava_base.lsb_openjobinfo_a(job_id, job_name, user, queue, host, options)
+    if job_info_head is not NULL:
+        #theres other stuff in  here we might want
+        return job_info_head.numJobs
 
+    if lsberrno == LSBE_NO_JOB:
+        return 0
 
+    lsb_perror("lsb_openjobinfo_a")
+    raise Exception("Error calling lsb_openjobinfo_a")
 
 def lsb_pendreason (numReasons, rsTb, jInfoH, ld):
     """openlava.lsblib.lsb_pendreason(numReasons, rsTb, jInfoH, ld)
@@ -1760,11 +1768,14 @@ Get the next job in the list from the MBD.
 """
     cdef jobInfoEnt * j
     cdef int * more
-    more=NULL
-    j=openlava_base.lsb_readjobinfo(more)
+    more = NULL
+    j = openlava_base.lsb_readjobinfo(more)
     if j == NULL:
         return None
-    a=JobInfoEnt()
+
+    #cdef jobInfoEnt * jinfo = <jobInfoEnt *>malloc(sizeof(jobInfoEnt))
+    #memcpy(jinfo, &j, sizeof(jobInfoEnt))
+    a = JobInfoEnt()
     a._load_struct(j)
     return a
 
@@ -2101,6 +2112,45 @@ cdef class JobInfoEnt:
     cdef _load_struct(self, jobInfoEnt * data ):
         self._data=data
 
+    @staticmethod
+    def header_text():
+        return 'JOBID\tUSER\tSTAT\tQUEUE\tFROM_HOST\tEXEC_HOST\tJOB_NAME\tSUBMIT_TIME'
+
+    def __str__(self):
+        #copy the bjob output for now
+        #JOBID   USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
+        #6380    vagrant DONE  normal     head        node10      echo test  Mar 20 13:46
+        t = time.strftime('%B %d %H:%M', self.submitTime)
+        hosts = ",".join(self.exHosts)
+        return '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(
+            self.jobId, self.user, self.status, self.submit.queue,
+            self.fromHost, hosts, self.submit.jobName, t
+        )
+
+    def status_as_str(self):
+        #we don't do ZOMBI here
+        #job->reasons & EXIT_ZOMBIE is ZOMBI
+        mapping = {
+            JOB_STAT_NULL:  "NULL",
+            JOB_STAT_PEND:  "PEND",
+            JOB_STAT_PSUSP: "PSUSP",
+            JOB_STAT_RUN:   "RUN",
+            JOB_STAT_RUN|JOB_STAT_WAIT: "WAIT",
+            JOB_STAT_SSUSP: "SSUSP",
+            JOB_STAT_USUSP: "USUSP",
+            JOB_STAT_EXIT:  "EXIT",
+            JOB_STAT_DONE:  "DONE",
+            JOB_STAT_DONE|JOB_STAT_PDONE: "DONE",
+            JOB_STAT_DONE|JOB_STAT_WAIT: "DONE",
+            JOB_STAT_DONE|JOB_STAT_PERR: "DONE",
+            JOB_STAT_UNKWN: "UNKNWN"
+        }
+
+        if self._data.status in mapping:
+            return mapping[self._data.status]
+        else:
+            return "ERROR"
+        
     property jobId:
         def __get__(self):
             return self._data.jobId
@@ -2111,7 +2161,7 @@ cdef class JobInfoEnt:
 
     property status:
         def __get__(self):
-            return self._data.status
+            return self.status_as_str()
 
     property reasonTb:
         def __get__(self):
@@ -2135,7 +2185,7 @@ cdef class JobInfoEnt:
 
     property submitTime:
         def __get__(self):
-            return self._data.submitTime
+            return time.localtime(self._data.submitTime)
 
     property reserveTime:
         def __get__(self):
@@ -2562,9 +2612,11 @@ cdef class QueueInfoEnt:
             return self._data.defProcLimit
 
 cdef class Submit:
+    cdef bool initialise
     cdef submit * _data
 
     def __cinit__(self, initialise=True):
+        self.initialise = initialise
         if initialise:
             #initialise a new Submit struct on the heap and
             #set self._data to point to it
@@ -2573,6 +2625,11 @@ cdef class Submit:
             self._data = NULL
 
     def __dealloc__(self):
+        #this is when we didn't create the struct so we don't
+        #want to free it because it isn't ours
+        if not self.initialise:
+            return
+
         if self._data is not NULL:
             Submit.free(self._data)
 
