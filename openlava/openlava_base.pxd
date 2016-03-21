@@ -17,15 +17,6 @@
 
 from libc.stdio cimport *
 
-cdef extern from "Python.h":
-    ctypedef struct FILE
-    FILE* PyFile_AsFile(object)
-    void fprintf(FILE* f, char* s, char* s)
-
-cdef extern from "fileobject.h":
-    ctypedef class __builtin__.file [object PyFileObject]:
-        pass
-
 cdef extern from "lsbatch.h":
 
     ctypedef long long int LS_LONG_INT
