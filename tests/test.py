@@ -17,11 +17,12 @@
 # along with openlava-python.  If not, see <http://www.gnu.org/licenses/>.
 import unittest
 import os
+import time
 from openlava import lsblib
 from openlava import lslib
+from openlava.utils import find_openlava
 
-
-class LsBlib(unittest.TestCase):
+class Lsblib(unittest.TestCase):
     def setUp(self):
         lsblib.lsb_init("test case")
 
@@ -37,9 +38,8 @@ class LsBlib(unittest.TestCase):
         s.command = "hostname"
         s.maxNumProcessors = 1
         s.numProcessors = 1
-        r = lsblib.SubmitReply()
-        job_id = lsblib.lsb_submit(s, r)
-        self.assertGreaterEqual(job_id, 0)
+        sr = lsblib.lsb_submit(s)
+        self.assertGreaterEqual(sr.jobId, 0)
 
     def test_queuecontrol(self):
         queues = lsblib.lsb_queueinfo()
@@ -71,7 +71,7 @@ class LsBlib(unittest.TestCase):
 
     def check_user(self, u):
         self.assertIsInstance(u, lsblib.UserInfoEnt)
-        self.assertIsInstance(u.user, unicode)
+        self.assertIsInstance(u.user, basestring)
         methods = [
             'procJobLimit',
             'maxJobs',
@@ -88,37 +88,34 @@ class LsBlib(unittest.TestCase):
 
 
     def test_job(self):
-        num_jobs = lsblib.lsb_openjobinfo(job_id=1)
-        self.assertEqual(num_jobs, -1)
-        lsblib.lsb_closejobinfo()
+        try:
+            num_jobs = lsblib.lsb_openjobinfo(job_id=1)
+            self.assertEqual(num_jobs, 0)
+        finally:
+            lsblib.lsb_closejobinfo()
 
     def test_jobs(self):
-        num_jobs = lsblib.lsb_openjobinfo()
-        self.assertEqual(lsblib.get_lsberrno(), lsblib.LSBE_NO_ERROR)
-        for i in range(num_jobs):
-            job = lsblib.lsb_readjobinfo()
-            self.check_job(job)
-            ld = lsblib.LoadIndexLog()
-            reasons = lsblib.lsb_pendreason(job.numReasons, job.reasonTb, None, ld)
-            reasons = lsblib.lsb_suspreason(job.reasons, job.subreasons, ld)
-            filename = lsblib.lsb_peekjob(job.jobId)
-
-        lsblib.lsb_closejobinfo()
+        try:
+            num_jobs = lsblib.lsb_openjobinfo()
+            self.assertEqual(lsblib.get_lsberrno(), lsblib.LSBE_NO_ERROR)
+            for i in range(num_jobs):
+                job = lsblib.lsb_readjobinfo()
+                self.check_job(job)
+                ld = lsblib.LoadIndexLog()
+                reasons = lsblib.lsb_pendreason(job.numReasons, job.reasonTb, None, ld)
+                reasons = lsblib.lsb_suspreason(job.reasons, job.subreasons, ld)
+                filename = lsblib.lsb_peekjob(job.jobId)
+        finally:
+           lsblib.lsb_closejobinfo()
 
     def check_job(self, job):
         self.assertIsInstance(job, lsblib.JobInfoEnt)
         ints = [
             'jobId',
-            'status',
             'numReasons',
             'reasons',
             'subreasons',
             'jobPid',
-            'submitTime',
-            'reserveTime',
-            'startTime',
-            'predictedStartTime',
-            'endTime',
             'umask',
             'numExHosts', 'nIdx',
             'exitStatus',
@@ -133,23 +130,32 @@ class LsBlib(unittest.TestCase):
         for a in range(7):
             self.assertIsInstance(job.counter[a], int)
 
-        for attr in ['cwd', 'subHomeDir', 'fromHost', 'execHome', 'execCwd', 'execUsername', 'parentGroup', 'jName', ]:
-            self.assertIsInstance(getattr(job, attr), unicode)
+        times = [
+            'predictedStartTime',
+            'submitTime',
+            'reserveTime',
+            'startTime',
+            'endTime',
+        ]
+
+        for attr in times:
+            self.assertIsInstance(getattr(job, attr), time.struct_time)
+
+        for attr in ['cwd', 'subHomeDir', 'fromHost', 'execHome', 'execCwd', 'execUsername', 'parentGroup', 'jName', 'status']:
+            self.assertIsInstance(getattr(job, attr), basestring)
 
         self.assertIsInstance(job.exHosts, list)
         for host in job.exHosts:
-            self.assertIsInstance(host, unicode)
+            self.assertIsInstance(host, basestring)
 
         self.assertIsInstance(job.loadSched, list)
         self.assertIsInstance(job.loadStop, list)
         self.assertEqual(len(job.loadSched), job.nIdx)
         self.assertEqual(len(job.loadStop), job.nIdx)
-        for l in job.loadSched:
+        for l in job.loadSched + job.loadStop + [job.cpuFactor]:
             self.assertIsInstance(l, float)
-        for l in job.loadStop:
-            self.assertIsInstance(l, float)
-        for a in [job.cpuFactor, job.cpuTime]:
-            self.assertIsInstance(a, float)
+
+        self.assertIsInstance(job.cpuTime, time.struct_time)
 
         s = job.submit
         self.assertIsInstance(s, lsblib.Submit)
@@ -184,10 +190,10 @@ class LsBlib(unittest.TestCase):
             'mailUser',
             'projectName',
             'loginShell', ]:
-            self.assertIsInstance(getattr(s, attr), unicode)
+            self.assertIsInstance(getattr(s, attr), basestring)
         self.assertEqual(len(s.askedHosts), s.numAskedHosts)
         for h in s.askedHosts:
-            self.assertIsInstance(h, unicode)
+            self.assertIsInstance(h, basestring)
         for r in range(10):
             self.assertIsInstance(s.rLimits[r], int)
             self.assertGreaterEqual(s.rLimits[r], -1)
@@ -195,8 +201,8 @@ class LsBlib(unittest.TestCase):
         self.assertEqual(len(xf), s.nxf)
         self.assertIsInstance(xf, list)
         for a in xf:
-            self.assertIsInstance(a.subFn, unicode)
-            self.assertIsInstance(a.execFn, unicode)
+            self.assertIsInstance(a.subFn, basestring)
+            self.assertIsInstance(a.execFn, basestring)
             self.assertIsInstance(a.options, int)
         ru = job.runRusage
         for a in ['mem', 'swap', 'utime', 'stime', 'npids', 'npgids']:
@@ -228,18 +234,18 @@ class LsBlib(unittest.TestCase):
             self.check_host(host)
 
     def check_queue(self, queue):
-        self.assertIsInstance(queue.queue, unicode)
+        self.assertIsInstance(queue.queue, basestring)
         self.assertNotEqual(queue.queue, "")
-        self.assertIsInstance(queue.description, unicode)
+        self.assertIsInstance(queue.description, basestring)
         self.assertIsInstance(queue.priority, int)
         self.assertIsInstance(queue.nice, int)
         self.assertIsInstance(queue.userList, list)
         for user in queue.userList:
-            self.assertIsInstance(user, unicode)
+            self.assertIsInstance(user, basestring)
             self.assertNotEqual(user, "")
         self.assertIsInstance(queue.hostList, list)
         for host in queue.hostList:
-            self.assertIsInstance(host, unicode)
+            self.assertIsInstance(host, basestring)
             self.assertNotEqual(host, "")
 
         self.assertIsInstance(queue.nIdx, int)
@@ -248,13 +254,13 @@ class LsBlib(unittest.TestCase):
         self.assertEqual(queue.nIdx, len(queue.loadStop))
         self.assertIsInstance(queue.userJobLimit, int)
         self.assertIsInstance(queue.procJobLimit, float)
-        self.assertIsInstance(queue.windows, unicode)
+        self.assertIsInstance(queue.windows, basestring)
         self.assertIsInstance(queue.rLimits, list)
         self.assertEqual(len(queue.rLimits), 11)
         for i in queue.rLimits:
             self.assertIsInstance(i, int)
             self.assertGreaterEqual(i, -1)
-        self.assertIsInstance(queue.hostSpec, unicode)
+        self.assertIsInstance(queue.hostSpec, basestring)
         self.assertIsInstance(queue.qAttrib, int)
         self.assertIsInstance(queue.qStatus, int)
         self.assertIsInstance(queue.maxJobs, int)
@@ -271,13 +277,7 @@ class LsBlib(unittest.TestCase):
         self.assertIsInstance(host, lsblib.HostInfoEnt)
 
     def test_lsbaccts(self):
-        # Find lsbatch
-        try:
-            lsfdir = os.environ['LSF_ENVDIR']
-            lsfdir = os.path.join(libdir, "..")
-
-        except:
-            lsfdir = '/opt/openlava'
+        lsfdir = find_openlava()
 
         for fname in ['lsb.acct', 'lsb.events']:
             acct_file = os.path.join(lsfdir, "work", "logdir", fname)
@@ -294,7 +294,7 @@ class LsBlib(unittest.TestCase):
                 self.assertEqual(lsblib.get_lsberrno(), lsblib.LSBE_NO_ERROR)
 
 
-class LsLib(unittest.TestCase):
+class Lslib(unittest.TestCase):
     def test_clustername(self):
         self.assertTrue(lslib.ls_getclustername())
 
@@ -303,11 +303,11 @@ class LsLib(unittest.TestCase):
 
     def check_resource(self, res):
         self.assertIsInstance(res, lslib.ResItem)
-        self.assertIsInstance(res.name, unicode)
+        self.assertIsInstance(res.name, basestring)
         self.assertNotEqual(res.name, "")
         self.assertIsNotNone(res.name)
 
-        self.assertIsInstance(res.des, unicode)
+        self.assertIsInstance(res.des, basestring)
 
         self.assertIsInstance(res.flags, int)
         self.assertGreaterEqual(res.flags, 0)
@@ -315,10 +315,10 @@ class LsLib(unittest.TestCase):
         self.assertIsInstance(res.interval, int)
         self.assertGreaterEqual(res.interval, 0)
 
-        self.assertIsInstance(res.valueType, unicode)
+        self.assertIsInstance(res.valueType, basestring)
         self.assertIn(res.valueType, [u"LS_BOOLEAN", u"LS_NUMERIC", u"LS_STRING", u"LS_EXTERNAL"])
 
-        self.assertIsInstance(res.orderType, unicode)
+        self.assertIsInstance(res.orderType, basestring)
         self.assertIn(res.orderType, [u"INCR", u"DECR", u"NA"])
 
     def test_lsinfo(self):
@@ -332,18 +332,18 @@ class LsLib(unittest.TestCase):
         self.assertIsInstance(ls.nTypes, int)
         self.assertGreaterEqual(ls.nTypes, 0)
         for t in ls.hostTypes:
-            self.assertIsInstance(t, unicode)
+            self.assertIsInstance(t, basestring)
             self.assertIsNotNone(t)
             self.assertNotEqual(t, "")
 
         self.assertIsInstance(ls.nModels, int)
         self.assertGreaterEqual(ls.nModels, 0)
         for m in ls.hostModels:
-            self.assertIsInstance(m, unicode)
+            self.assertIsInstance(m, basestring)
             self.assertIsNotNone(m)
             self.assertNotEqual(m, "")
         for a in ls.hostArchs:
-            self.assertIsInstance(a, unicode)
+            self.assertIsInstance(a, basestring)
             self.assertIsNotNone(a)
             self.assertNotEqual(a, "")
         for r in ls.modelRefs:
@@ -362,16 +362,16 @@ class LsLib(unittest.TestCase):
         for host in hosts:
             hinfo[host.hostName] = {}
             self.assertIsInstance(host, lslib.HostInfo)
-            self.assertIsInstance(host.hostName, unicode)
+            self.assertIsInstance(host.hostName, basestring)
             self.assertNotEqual(host.hostName, "")
             self.assertIsNotNone(host.hostName)
 
-            self.assertIsInstance(host.hostType, unicode)
+            self.assertIsInstance(host.hostType, basestring)
             self.assertNotEqual(host.hostType, "")
             self.assertIsNotNone(host.hostType)
             hinfo[host.hostName]['hostType'] = host.hostType
 
-            self.assertIsInstance(host.hostModel, unicode)
+            self.assertIsInstance(host.hostModel, basestring)
             self.assertIsNotNone(host.hostModel)
             self.assertNotEqual(host.hostModel, "")
             hinfo[host.hostName]['hostModel'] = host.hostModel
@@ -399,8 +399,8 @@ class LsLib(unittest.TestCase):
             self.assertGreaterEqual(host.nRes, 0)
 
             for resource in host.resources:
-                self.assertIsInstance(resource, unicode)
-            self.assertIsInstance(host.windows, unicode)
+                self.assertIsInstance(resource, basestring)
+            self.assertIsInstance(host.windows, basestring)
             self.assertNotEqual(host.windows, "")
             self.assertIsNotNone(host.windows)
 
@@ -415,4 +415,9 @@ class LsLib(unittest.TestCase):
             self.assertEqual(v['hostModel'], lslib.ls_gethostmodel(h))
 
 
-unittest.main()
+suite = unittest.TestSuite()
+suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Lsblib))
+suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Lslib))
+
+if __name__ == '__main__':
+    unittest.main()
