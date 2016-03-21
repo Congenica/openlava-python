@@ -65,7 +65,7 @@ Members
 
 import cython
 cimport openlava_base
-from openlava_base cimport LSF_RLIMIT_RSS
+from openlava_base cimport LSF_RLIMIT_RSS, LS_LONG_INT, LS_UNS_LONG_INT, time_t, u_short, lsberrno
 from traceback import print_stack
 from libc.stdlib cimport realloc, malloc, free
 from libc.string cimport strcmp, memset, strcpy, memcpy
@@ -73,6 +73,11 @@ from cpython.string cimport PyString_AsString
 from cpython cimport bool
 from openlava.lslib import ls_perror, LSF_RLIM_NLIMITS, DEFAULT_RLIMIT
 import time
+import os
+import threading
+import contextlib
+
+lock = threading.Lock()
 
 cdef extern from "Python.h":
     ctypedef struct FILE
@@ -83,16 +88,7 @@ cdef extern from "fileobject.h":
     ctypedef class __builtin__.file [object PyFileObject]:
         pass
 
-
 cdef extern from "lsbatch.h":
-    ctypedef long long int LS_LONG_INT
-    ctypedef unsigned long long LS_UNS_LONG_INT
-
-    ctypedef long time_t
-    ctypedef unsigned short u_short
-
-    extern int lsberrno
-
     extern struct logSwitchLog:
         int lastJobId
 
@@ -1068,6 +1064,52 @@ LSBE_NUM_ERR = 131
 
 _OPENJOBINFO_COUNT = False
 
+cdef char * string_copy(char * dest, src_p, free_dest=True):
+    """
+    Copy the string contents from a python string onto the heap and return a pointer to it
+    Can be used to initialise a new char * like: string_copy(chr_ptr, "fekn", free_dest=False)
+    """
+    #make sure it is a string
+    src_p = str(src_p)
+    cdef char * src = src_p
+
+    if free_dest and dest != NULL:
+        free(dest)
+
+    new = <char *>malloc(sizeof(char) * len(src_p))
+    if new == NULL:
+        raise MemoryError("Unable to allocate memory for string")
+
+    strcpy(new, src)
+    return new
+
+@contextlib.contextmanager
+def set_env(environment):
+    """
+    Temporarily set the process environment variables.
+
+    >>> with set_env(PLUGINS_DIR=u'test/plugins'):
+    ...   "PLUGINS_DIR" in os.environ
+    True
+
+   :type environment: dict[str, unicode]
+   :param environment: Environment variables to set
+    """
+    if environment is None:
+        yield
+        return
+
+    old_environ = dict(os.environ)
+    os.environ.clear()
+    os.environ.update(environment)
+
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_environ)
+
+
 def create_job_id(job_id, array_index):
     """openlava.lsblib.create_job_id(job_id, array_index)
 
@@ -1849,7 +1891,7 @@ Sends the specified signal to the job.
 """
     return openlava_base.lsb_signaljob(jobId, sigValue)
 
-def lsb_submit(jobSubReq, jobSubReply):
+def lsb_submit(submit_req):
     """openlava.lsblib.lsb_submit(jobSubReq, jobSubReply)
 
 Submits a new job into the scheduling environment.
@@ -1875,10 +1917,9 @@ Submits a new job into the scheduling environment.
     >>>
 
 """
-    assert(isinstance(jobSubReq, Submit))
-    assert(isinstance(jobSubReply,SubmitReply))
-    job_id=jobSubReq._submit(jobSubReply)
-    return job_id
+    assert(isinstance(submit_req, Submit))
+    return submit_req.submit()
+
 
 def lsb_suspreason (reasons, subreasons, ld):
     """openlava.lsblib.lsb_suspreason(reasons, subreasons, ld)
@@ -2157,7 +2198,7 @@ cdef class JobInfoEnt:
 
     property user:
         def __get__(self):
-            return u'%s' % self._data.user
+            return <bytes>self._data.user
 
     property status:
         def __get__(self):
@@ -2189,23 +2230,23 @@ cdef class JobInfoEnt:
 
     property reserveTime:
         def __get__(self):
-            return self._data.reserveTime
+            return time.localtime(self._data.reserveTime)
 
     property startTime:
         def __get__(self):
-            return self._data.startTime
+            return time.localtime(self._data.startTime)
 
     property predictedStartTime:
         def __get__(self):
-            return self._data.predictedStartTime
+            return time.localtime(self._data.predictedStartTime)
 
     property endTime:
         def __get__(self):
-            return self._data.endTime
+            return time.localtime(self._data.endTime)
 
     property cpuTime:
         def __get__(self):
-            return self._data.cpuTime
+            return time.localtime(self._data.cpuTime)
 
     property umask:
         def __get__(self):
@@ -2213,19 +2254,19 @@ cdef class JobInfoEnt:
 
     property cwd:
         def __get__(self):
-            return u'%s' % self._data.cwd
+            return <bytes>self._data.cwd
 
     property subHomeDir:
         def __get__(self):
-            return u'%s' % self._data.subHomeDir
+            return <bytes>self._data.subHomeDir
 
     property fromHost:
         def __get__(self):
-            return u'%s' % self._data.fromHost
+            return <bytes>self._data.fromHost
 
     property exHosts:
         def __get__(self):
-            return [ u'%s' % self._data.exHosts[i] for i in range(self.numExHosts)]
+            return [ <bytes>self._data.exHosts[i] for i in range(self.numExHosts)]
 
     property numExHosts:
         def __get__(self):
@@ -2263,15 +2304,15 @@ cdef class JobInfoEnt:
 
     property execHome:
         def __get__(self):
-            return u'%s' % self._data.execHome
+            return <bytes>self._data.execHome
 
     property execCwd:
         def __get__(self):
-            return u'%s' % self._data.execCwd
+            return <bytes>self._data.execCwd
 
     property execUsername:
         def __get__(self):
-            return u'%s' % self._data.execUsername
+            return <bytes>self._data.execUsername
 
     property jRusageUpdateTime:
         def __get__(self):
@@ -2289,11 +2330,11 @@ cdef class JobInfoEnt:
 
     property parentGroup:
         def __get__(self):
-            return u'%s' % self._data.parentGroup
+            return <bytes>self._data.parentGroup
 
     property jName:
         def __get__(self):
-            return u'%s' % self._data.jName
+            return <bytes>self._data.jName
 
     property counter:
         def __get__(self):
@@ -2614,9 +2655,11 @@ cdef class QueueInfoEnt:
 cdef class Submit:
     cdef bool initialise
     cdef submit * _data
+    cdef dict environment
 
-    def __cinit__(self, initialise=True):
+    def __cinit__(self, initialise=True, environment=None):
         self.initialise = initialise
+        self.environment = environment
         if initialise:
             #initialise a new Submit struct on the heap and
             #set self._data to point to it
@@ -2646,17 +2689,17 @@ cdef class Submit:
         if job_id < 0:
             raise Exception("Error modifying job {}".format(job_id))
 
-    #why is there submitReply and SubmitReply (python class)
-    def _submit(self, reply):
-        cdef submitReply sub_reply
-        job_id = openlava_base.lsb_submit(self._data, &sub_reply)
-        reply.queue = sub_reply.queue
-        if job_id < 0:
-            reply.badJobId = sub_reply.badJobId
-            reply.badJobName = sub_reply.badJobName
-            reply.badReqIndx = sub_reply.badReqIndx
+    def submit(self):
+        sr = SubmitReply()
+        global lock
+        with lock:
+            #set our local ENV to whatever is in self.environment dict
+            #when environment is None nothing will be changed
+            with set_env(self.environment):
+                job_id = openlava_base.lsb_submit(self._data, sr._data)
+                sr._set_job_id(job_id)
 
-        return job_id
+        return sr
 
     @staticmethod
     cdef submit * new():
@@ -2724,20 +2767,7 @@ cdef class Submit:
         if s.projectName is not NULL: free(s.projectName)
         if s.loginShell is not NULL: free(s.loginShell)
 
-    cdef char * _copy(self, char * dest, src_p):
-        #make sure it is a string
-        src_p = str(src_p)
-        cdef char * src = src_p
-
-        if dest != NULL:
-            free(dest)
-
-        dest = <char *>malloc(sizeof(char) * len(src_p))
-        if dest == NULL:
-            raise MemoryError("Unable to allocate memory for string")
-
-        strcpy(dest, src)
-        return dest
+        free(s)
 
     #utility methods so we have an actually useful interface
     #for setting job options. this functionality is copied
@@ -2779,7 +2809,7 @@ cdef class Submit:
             return <bytes>self._data.jobName
         def __set__(self, v):
             self._data.options2 |= SUB2_MODIFY_PEND_JOB
-            self._data.jobName = self._copy(self._data.jobName, v)
+            self._data.jobName = string_copy(self._data.jobName, v)
             self._data.options |= SUB_JOB_NAME
 
     property queue:
@@ -2787,7 +2817,7 @@ cdef class Submit:
             return <bytes>self._data.queue
         def __set__(self, v):
             self._data.options2 |= SUB2_MODIFY_PEND_JOB
-            self._data.queue = self._copy(self._data.queue, v)
+            self._data.queue = string_copy(self._data.queue, v)
             self._data.options |= SUB_QUEUE
 
     property numAskedHosts:
@@ -2807,7 +2837,7 @@ cdef class Submit:
             return <bytes>self._data.resReq
         def __set__(self, v):
             v = v.lstrip() #preceding whitespace will break
-            self._data.resReq = self._copy(self._data.resReq, v)
+            self._data.resReq = string_copy(self._data.resReq, v)
             self._data.options |= SUB_RES_REQ
 
     property rLimits:
@@ -2824,7 +2854,7 @@ cdef class Submit:
         def __get__(self):
             return <bytes>self._data.hostSpec
         def __set__(self, v):
-            self._data.hostSpec=self._copy(self._data.hostSpec, v)
+            self._data.hostSpec = string_copy(self._data.hostSpec, v)
 
     property numProcessors:
         def __get__(self):
@@ -2847,7 +2877,7 @@ cdef class Submit:
         def __get__(self):
             return <bytes>self._data.dependCond
         def __set__(self,v):
-            self._data.dependCond = self._copy(self._data.dependCond, v)
+            self._data.dependCond = string_copy(self._data.dependCond, v)
 
     property beginTime:
         def __get__(self):
@@ -2871,7 +2901,7 @@ cdef class Submit:
         def __get__(self):
             return <bytes>self._data.inFile
         def __set__(self, v):
-            self._data.inFile = self._copy(self._data.inFile, v)
+            self._data.inFile = string_copy(self._data.inFile, v)
 
     property outFile:
         def __get__(self):
@@ -2880,7 +2910,7 @@ cdef class Submit:
             self._data.options2 |= SUB2_MODIFY_RUN_JOB
             #TODO: same as below
 
-            self._data.outFile = self._copy(self._data.outFile, v)
+            self._data.outFile = string_copy(self._data.outFile, v)
             self._data.options |= SUB_OUT_FILE
 
     property errFile:
@@ -2890,20 +2920,20 @@ cdef class Submit:
             self._data.options2 |= SUB2_MODIFY_RUN_JOB
             #TODO: check MAXFILENAMELEN,
             #      check errFile != outFile
-            self._data.errFile = self._copy(self._data.errFile, v)
+            self._data.errFile = string_copy(self._data.errFile, v)
             self._data.options |= SUB_ERR_FILE
 
     property command:
         def __get__(self):
             return <bytes>self._data.command
-        def __set__(self,v):
-            self._data.command=self._copy(self._data.command, v)
+        def __set__(self, v):
+            self._data.command = string_copy(self._data.command, v)
 
     property newCommand:
         def __get__(self):
             return <bytes>self._data.newCommand
         def __set__(self, v):
-            self._data.newCommand = self._copy(self._data.newCommand, v)
+            self._data.newCommand = string_copy(self._data.newCommand, v)
 
     property chkpntPeriod:
         def __get__(self):
@@ -2915,7 +2945,7 @@ cdef class Submit:
         def __get__(self):
             return <bytes>self._data.chkpntDir
         def __set__(self, v):
-            self._data.chkpntDir=self._copy(self._data.chkpntDir, v)
+            self._data.chkpntDir = string_copy(self._data.chkpntDir, v)
 
     property nxf:
         def __get__(self):
@@ -2954,13 +2984,13 @@ cdef class Submit:
         def __get__(self):
             return <bytes>self._data.preExecCmd
         def __set__(self, v):
-            self._data.preExecCmd = self._copy(self._data.preExecCmd, v)
+            self._data.preExecCmd = string_copy(self._data.preExecCmd, v)
 
     property mailUser:
         def __get__(self):
             return <bytes>self._data.mailUser
         def __set__(self, v):
-            self._data.mailUser = self._copy(self._data.mailUser, v)
+            self._data.mailUser = string_copy(self._data.mailUser, v)
 
     property delOptions:
         def __get__(self):
@@ -2979,7 +3009,7 @@ cdef class Submit:
             return <bytes>self._data.projectName
         def __set__(self, v):
             self._data.options2 |= SUB2_MODIFY_PEND_JOB
-            self._data.projectName = self._copy(self._data.projectName, v)
+            self._data.projectName = string_copy(self._data.projectName, v)
             self._data.options |= SUB_PROJECT_NAME
 
     property maxNumProcessors:
@@ -2992,7 +3022,7 @@ cdef class Submit:
         def __get__(self):
             return <bytes>self._data.loginShell
         def __set__(self, v):
-            self._data.loginShell = self._copy(self._data.loginShell, v)
+            self._data.loginShell = string_copy(self._data.loginShell, v)
 
     property userPriority:
         def __get__(self):
@@ -3000,14 +3030,95 @@ cdef class Submit:
         def __set__(self, v):
             self._data.userPriority = int(v)
 
+cdef class SubmitReply:
+    cdef submitReply * _data
+    cdef bool initialise
+    cdef int _jobId
 
-class SubmitReply:
-    def __init__(self):
-        self.queue=""
-        self.badJobId=0
-        self.badJobName=""
-        self.badReqIndx=0
+    cdef int _load_struct(self, submitReply * data) except -1:
+        if self._data is not NULL:
+            raise ValueError("Data has already been set")
 
+        self._data = data
+
+    #only available to Cython, don't want the user setting this
+    cdef _set_job_id(self, job_id):
+        self._jobId = job_id
+
+    def __cinit__(self, initialise=True):
+        self._set_job_id(-1) #this isn't on the struct
+        self.initialise = initialise
+        if initialise:
+            #initialise a new Submit struct on the heap and
+            #set self._data to point to it
+            self._load_struct( SubmitReply.new() )
+        else:
+            self._data = NULL
+
+    @staticmethod
+    cdef submitReply * new():
+        """This should be in openlava. it creates a Submit struct on the heap and returns a pointer"""
+        cdef submitReply * sr = <submitReply *>malloc(sizeof(submitReply))
+        if sr is NULL:
+            raise MemoryError("Could not malloc enough memory for new submitReply struct")
+
+        sr.queue      = NULL
+        sr.badJobName = NULL
+        sr.badJobId   = 0
+        sr.badReqIndx = 0
+
+        return sr
+
+    @staticmethod
+    cdef void free(submitReply * sr):
+        #return codes from free?
+
+        #we can't free these here, i think it is because queue here
+        #probably points to the same queue char * from the submit struct.
+        #not sure about badJobName but i bet that does as well. ugh
+        #if sr.queue is not NULL: free(sr.queue)
+        #if sr.badJobName is not NULL: free(sr.badJobName)
+
+        free(sr)
+
+    def __dealloc__(self):
+        #this is when we didn't create the struct so we don't
+        #want to free it because it isn't ours
+        if not self.initialise:
+            return
+
+        if self._data is not NULL:
+            SubmitReply.free(self._data)
+
+    property jobId:
+        def __get__(self):
+            return self._jobId
+        #def __set__(self, v):
+        #    self.jobId = int(v)
+
+    property queue:
+        def __get__(self):
+            return self._data.queue if self._data.queue is not NULL else ""
+        #def __set__(self, v):
+        #    self._data.queue = string_copy(self._data.queue, v)
+
+    property badJobName:
+        def __get__(self):
+            return self._data.badJobName if self._data.badJobName is not NULL else ""
+        #def __set__(self, v):
+        #    self._data.badJobName = string_copy(self._data.badJobName, v)
+
+    property badJobId:
+        def __get__(self):
+            return self._data.badJobId
+        #def __set__(self, v):
+        #    self._data.badJobId = int(v)
+
+    property badReqIndx:
+        def __get__(self):
+            return self._data.badReqIndx
+        #def __set__(self, v):
+        #    self._data.badReqIndx = int(v)
 
 cdef class UserInfoEnt:
     cdef userInfoEnt * _data
