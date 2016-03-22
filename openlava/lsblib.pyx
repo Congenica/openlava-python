@@ -64,8 +64,8 @@ Members
 """
 
 import cython
-cimport openlava_base
-from openlava_base cimport lsfRusage, jobNewLog, logSwitchLog, jobModLog, jobStartLog, jobStartAcceptLog, jobExecuteLog, jobStatusLog, sbdJobStatusLog, jobSwitchLog, jobMoveLog, chkpntLog, jobRequeueLog, jobCleanLog, sigactLog, migLog, signalLog, queueCtrlLog, newDebugLog, hostCtrlLog, mbdStartLog, mbdDieLog, unfulfillLog, jobFinishLog, loadIndexLog, jobMsgLog, jobMsgAckLog, jobForceRequestLog, jobAttrSetLog, eventLog, eventRec, submit, hostInfoEnt, jRusage, jobInfoEnt, jobrequeue, pidInfo, queueInfoEnt, submitReply, userInfoEnt, xFile, jobInfoHead, loadIndexLog, lsberrno 
+cimport lsmethods
+from lsstructs cimport *
 from lsconstants cimport *
 from lstypes cimport LS_LONG_INT, LS_UNS_LONG_INT
 
@@ -404,7 +404,7 @@ Closes the connection to the MBD that was opened with lsb_openjobinfo()
 """
     global _OPENJOBINFO_COUNT
     _OPENJOBINFO_COUNT = False
-    openlava_base.lsb_closejobinfo()
+    lsmethods.lsb_closejobinfo()
 
 def lsb_deletejob(job_id, submit_time, options=0):
     """openlava.lsblib.lsb_deletejob(job_id, submit_time, [options=0])
@@ -431,7 +431,7 @@ Removes a job from the schedluing system.  If the job is running it is killed.
     >>> lsblib.lsb_closejobinfo()
 
 """
-    return openlava_base.lsb_deletejob(job_id, submit_time, options)
+    return lsmethods.lsb_deletejob(job_id, submit_time, options)
 
 def lsb_geteventrec(fh, line_number):
     """
@@ -445,7 +445,7 @@ def lsb_geteventrec(fh, line_number):
     ln=line_number
     cdef FILE * cfh
     cfh=PyFile_AsFile(fh)
-    er = openlava_base.lsb_geteventrec(cfh, &ln)
+    er = lsmethods.lsb_geteventrec(cfh, &ln)
     if er == NULL:
         return None
     rec = EventRecord()
@@ -473,7 +473,7 @@ Opens or closes a host, shutsdown or restarts SBD.
 
     opCode=int(opCode)
     host=str(host)
-    return openlava_base.lsb_hostcontrol(host, opCode)
+    return lsmethods.lsb_hostcontrol(host, opCode)
 
 def lsb_hostinfo(hosts=[], numHosts=0):
     """openlava.lsblib.lsb_hostinfo(hosts=[], numHosts=0)
@@ -519,7 +519,7 @@ Returns information about Openlava hosts.
     cdef hostInfoEnt *host_info
     cdef hostInfoEnt *h
 
-    host_info=openlava_base.lsb_hostinfo(host_list, &num_hosts)
+    host_info=lsmethods.lsb_hostinfo(host_list, &num_hosts)
     if host_info==NULL:
         return None
 
@@ -547,7 +547,7 @@ Initialize the lsb library
     0
 
 """
-    return openlava_base.lsb_init(appName)
+    return lsmethods.lsb_init(appName)
 
 def lsb_modify(jobSubReq, jobSubReply, jobId):
     """openlava.lsblib.lsb_modify(jobSubReq, jobSubReply, jobId)
@@ -598,9 +598,9 @@ Get information about jobs that match the specified criteria.
         raise Exception("closejobinfo has not been called after previous openjobinfo call")
     _OPENJOBINFO_COUNT = True
     cdef jobInfoHead * job_info_head
-    #numJobs=openlava_base.lsb_openjobinfo(job_id,job_name,user,queue,host,options)
+    #numJobs=lsmethods.lsb_openjobinfo(job_id,job_name,user,queue,host,options)
     #return numJobs
-    job_info_head = openlava_base.lsb_openjobinfo_a(job_id, job_name, user, queue, host, options)
+    job_info_head = lsmethods.lsb_openjobinfo_a(job_id, job_name, user, queue, host, options)
     if job_info_head is not NULL:
         #theres other stuff in  here we might want
         return job_info_head.numJobs
@@ -650,7 +650,7 @@ Get the reason a job is pending
     cdef loadIndexLog loadIndex
     loadIndex.nIdx=ld.nIdx
     loadIndex.name=to_cstring_array(ld.name)
-    reasons=openlava_base.lsb_pendreason(numReasons, reasonsTb, &jInfo, &loadIndex)
+    reasons=lsmethods.lsb_pendreason(numReasons, reasonsTb, &jInfo, &loadIndex)
     if jInfoH != None:
         free(jInfo.jobIds)
         free(jInfo.hostNames)
@@ -682,7 +682,7 @@ Get the name of the file where job output is being spooled.
 """
     jobId = long(jobId)
     cdef char * fname
-    fname = openlava_base.lsb_peekjob(jobId)
+    fname = lsmethods.lsb_peekjob(jobId)
     if fname == NULL:
         return None
     else:
@@ -717,7 +717,7 @@ Prints the lsblib error message associated with the lsberrno prefixed by message
     cdef char * m
     message=str(message)
     m=message
-    openlava_base.lsb_perror(m)
+    lsmethods.lsb_perror(m)
 
 
 def lsb_queuecontrol(queue, opCode):
@@ -741,7 +741,7 @@ Opens, closes, activates or inactivates a queue.
 """
     queue=str(queue)
     opCode=int(opCode)
-    return openlava_base.lsb_queuecontrol(queue, opCode)
+    return lsmethods.lsb_queuecontrol(queue, opCode)
 
 def lsb_queueinfo(queues=[], numqueues=0, hostname="", username="", options=0):
     """openlava.lsblib.lsb_queueinfo(queues=[], numqueues=0, hostname="", username="", options=0)
@@ -806,7 +806,7 @@ Get information on specified queues.
     options=int(options)
     opts=options
 
-    qs=openlava_base.lsb_queueinfo(queueNames, &numQueues, hostName, userName, opts)
+    qs=lsmethods.lsb_queueinfo(queueNames, &numQueues, hostName, userName, opts)
     if qs==NULL:
         return None
 
@@ -842,7 +842,7 @@ Get the next job in the list from the MBD.
     cdef jobInfoEnt * j
     cdef int * more
     more = NULL
-    j = openlava_base.lsb_readjobinfo(more)
+    j = lsmethods.lsb_readjobinfo(more)
     if j == NULL:
         return None
 
@@ -872,7 +872,7 @@ Reloads configuration information for the batch system.
 
 """
     opCode=int(opCode)
-    return openlava_base.lsb_reconfig(opCode)
+    return lsmethods.lsb_reconfig(opCode)
 
 def lsb_requeuejob(rq):
     """openlava.lsblib.lsb_requeuejob(rq)
@@ -920,7 +920,7 @@ Sends the specified signal to the job.
     0
 
 """
-    return openlava_base.lsb_signaljob(jobId, sigValue)
+    return lsmethods.lsb_signaljob(jobId, sigValue)
 
 def lsb_submit(submit_req):
     """openlava.lsblib.lsb_submit(jobSubReq, jobSubReply)
@@ -984,7 +984,7 @@ Get reasons why a job is suspended
     cdef loadIndexLog loadIndex
     loadIndex.nIdx=ld.nIdx
     loadIndex.name=to_cstring_array(ld.name)
-    reasons=openlava_base.lsb_suspreason(reasons, subreasons, &loadIndex)
+    reasons=lsmethods.lsb_suspreason(reasons, subreasons, &loadIndex)
     return u"%s" % reasons
 
 def lsb_sysmsg():
@@ -1012,7 +1012,7 @@ Get the lsblib error message associated with lsberrno
 
 """
     cdef char * msg
-    msg=openlava_base.lsb_sysmsg()
+    msg=lsmethods.lsb_sysmsg()
     if msg==NULL:
         return u""
     else:
@@ -1063,7 +1063,7 @@ Get information on specified users
     cdef userInfoEnt *user_info
     cdef userInfoEnt *u
 
-    user_info=openlava_base.lsb_userinfo(users,&num_users)
+    user_info=lsmethods.lsb_userinfo(users,&num_users)
     if user_info == NULL:
         return None
     usrs=[]
@@ -1411,7 +1411,7 @@ cdef class JobRequeue:
         options=self.options
         if options != REQUEUE_DONE and options != REQUEUE_EXIT and options != REQUEUE_RUN:
             raise ValueError("Invalid Option")
-        return openlava_base.lsb_requeuejob(&self._data)
+        return lsmethods.lsb_requeuejob(&self._data)
 
 
 cdef class JRusage:
@@ -1715,7 +1715,7 @@ cdef class Submit:
 
     def _modify(self, reply, job_id):
         cdef submitReply subRep
-        job_id = openlava_base.lsb_modify(self._data, &subRep, job_id)
+        job_id = lsmethods.lsb_modify(self._data, &subRep, job_id)
 
         if job_id < 0:
             raise Exception("Error modifying job {}".format(job_id))
@@ -1727,7 +1727,7 @@ cdef class Submit:
             #set our local ENV to whatever is in self.environment dict
             #when environment is None nothing will be changed
             with set_env(self.environment):
-                job_id = openlava_base.lsb_submit(self._data, sr._data)
+                job_id = lsmethods.lsb_submit(self._data, sr._data)
                 sr._set_job_id(job_id)
 
         return sr

@@ -67,9 +67,9 @@ from libc.stdlib cimport malloc, free
 from libc.string cimport strcmp, memset
 from cpython.string cimport PyString_AsString
 
-cimport openlava_base
-from openlava_base cimport clusterInfo, hostInfo, hostLoad, lsInfo, resItem, lserrno 
+cimport lsmethods
 from lsconstants cimport *
+from lsstructs cimport clusterInfo, hostInfo, hostLoad, lsInfo, resItem, lserrno
 
 def LS_ISUNAVAIL(status):
 	"""openlava.lslib.LS_ISUNAVAIL(status)
@@ -602,7 +602,7 @@ Returns an array of ClusterInfo objects.
 	clusterlist=NULL
 	if listSize > 0:
 		clusterlist=to_cstring_array(clusterList)
-	cinfo=openlava_base.ls_clusterinfo(resreq, &nClusters, clusterlist, listSize, options)
+	cinfo=lsmethods.ls_clusterinfo(resreq, &nClusters, clusterlist, listSize, options)
 	if cinfo==NULL:
 		return None
 	# iterate and populat
@@ -754,7 +754,7 @@ Returns the name of the cluster
 	u'openlava'
 
 """
-	return u"%s" % openlava_base.ls_getclustername()
+	return u"%s" % lsmethods.ls_getclustername()
 
 def ls_gethostfactor(hostname):
 	"""openlava.lslib.ls_gethostfactor(hostname)
@@ -775,7 +775,7 @@ Returns the host factor of the host
 
 """
 	cdef float *factor
-	factor = openlava_base.ls_gethostfactor(hostname)
+	factor = lsmethods.ls_gethostfactor(hostname)
 	return factor[0]
 
 def ls_gethostinfo(resReq="", hostList=[], options=0):
@@ -815,7 +815,7 @@ Returns an array of HostInfo objects that meet the criteria specified
 	if len(hostList)>0:
 		hosts=to_cstring_array(hostList)
 
-	h=openlava_base.ls_gethostinfo(resourceRequest, &numHosts, hosts, len(hostList), options)
+	h=lsmethods.ls_gethostinfo(resourceRequest, &numHosts, hosts, len(hostList), options)
 	if h==NULL:
 		return None
 
@@ -844,7 +844,7 @@ Returns the model name of the host
 
 """
 
-	cdef char * model=openlava_base.ls_gethostmodel(hostname)
+	cdef char * model=lsmethods.ls_gethostmodel(hostname)
 	if model==NULL:
 		return None
 	return unicode(model)
@@ -868,7 +868,7 @@ Returns the type of the host
 
 """
 
-	cdef char * hosttype=openlava_base.ls_gethosttype(hostname)
+	cdef char * hosttype=lsmethods.ls_gethosttype(hostname)
 	if hosttype==NULL:
 		return None
 	return unicode(hosttype)
@@ -890,7 +890,7 @@ Returns the name of the master host
 
 
 """
-	return u"%s" % openlava_base.ls_getmastername()
+	return u"%s" % lsmethods.ls_getmastername()
 
 def ls_info():
 	"""openlava.lslib.ls_info()
@@ -911,7 +911,7 @@ Returns an LsInfo object for the cluster
 """
 
 	cdef lsInfo * l
-	l=openlava_base.ls_info()
+	l=lsmethods.ls_info()
 	if l==NULL:
 		return None
 	ls=LsInfo()
@@ -969,11 +969,11 @@ Returns an array of HostLoad objects for hosts that meet the criteria
 		fromHost=fromhost
 
 	if numhosts==None:
-		hosts = openlava_base.ls_load(resReq, NULL, options, fromHost)
+		hosts = lsmethods.ls_load(resReq, NULL, options, fromHost)
 		numHosts=1
 	else:
 		numHosts=int(numhosts)
-		hosts = openlava_base.ls_load(resReq, &numHosts, options, fromHost);
+		hosts = lsmethods.ls_load(resReq, &numHosts, options, fromHost);
 	if hosts==NULL:
 		return None
 
@@ -1044,11 +1044,11 @@ Returns an array of HostLoad objects for hosts that meet the specified criteria
 		IndexList=to_cstring_array(indxnamelist)
 	
 	if numhosts==None:
-		hosts = openlava_base.ls_loadinfo(resReq, NULL, options, fromHost, hostList, listsize, &IndexList)
+		hosts = lsmethods.ls_loadinfo(resReq, NULL, options, fromHost, hostList, listsize, &IndexList)
 		numHosts=1
 	else:
 		numHosts=int(numhosts)
-		hosts = openlava_base.ls_loadinfo(resReq, &numHosts, options, fromHost, hostList, listsize, &IndexList)
+		hosts = lsmethods.ls_loadinfo(resReq, &numHosts, options, fromHost, hostList, listsize, &IndexList)
 	free(hostList)
 	if hosts==NULL:
 		return None
@@ -1084,7 +1084,7 @@ Prints the lslib error message associated with the lserrno prefixed by message.
 	cdef char * m
 	message=str(message)
 	m=message
-	openlava_base.ls_perror(m)
+	lsmethods.ls_perror(m)
 
 def ls_sysmsg():
 	"""openlava.lsblib.lsb_sysmsg()
@@ -1108,7 +1108,7 @@ Get the lslib error message associated with lserrno
 """
 
 	cdef char * msg
-	msg=openlava_base.ls_sysmsg()
+	msg=lsmethods.ls_sysmsg()
 	if msg==NULL:
 		return u""
 	else:
