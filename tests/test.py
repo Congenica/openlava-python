@@ -18,11 +18,16 @@
 import unittest
 import os
 import time
-from openlava import lsblib
-from openlava import lslib
+try:
+    from openlava import lsblib
+    from openlava import lslib
+    from openlava import constants
+except ImportError as e:
+    print "Error importing openlava modules: {}".format(e) #to get around setuptools hiding this
+    raise
 from openlava.utils import find_openlava
 
-class Lsblib(unittest.TestCase):
+class LsblibTest(unittest.TestCase):
     def setUp(self):
         lsblib.lsb_init("test case")
 
@@ -41,23 +46,25 @@ class Lsblib(unittest.TestCase):
         sr = lsblib.lsb_submit(s)
         self.assertGreaterEqual(sr.jobId, 0)
 
-    def test_queuecontrol(self):
-        queues = lsblib.lsb_queueinfo()
-        for q in queues:
-            queueName = q.queue
-            code = lsblib.lsb_queuecontrol(queueName, lsblib.QUEUE_INACTIVATE)
-            code = lsblib.lsb_queuecontrol(queueName, lsblib.QUEUE_ACTIVATE)
-            code = lsblib.lsb_queuecontrol(queueName, lsblib.QUEUE_CLOSED)
-            code = lsblib.lsb_queuecontrol(queueName, lsblib.QUEUE_OPEN)
+#this will alter our live queues!
+#    def test_queuecontrol(self):
+#        queues = lsblib.lsb_queueinfo()
+#        for q in queues:
+#            queueName = q.queue
+#            code = lsblib.lsb_queuecontrol(queueName, constants.QUEUE_INACTIVATE)
+#            code = lsblib.lsb_queuecontrol(queueName, constants.QUEUE_ACTIVATE)
+#            code = lsblib.lsb_queuecontrol(queueName, constants.QUEUE_CLOSED)
+#            code = lsblib.lsb_queuecontrol(queueName, constants.QUEUE_OPEN)
 
 
-    def test_hostcontrol(self):
-        hosts = lsblib.lsb_hostinfo()
-        for h in hosts:
-            if h.hStatus & (lsblib.HOST_STAT_OK | lsblib.HOST_STAT_BUSY) != 0:
-                hostName = h.host
-                code = lsblib.lsb_hostcontrol(hostName, lsblib.HOST_CLOSE)
-                code = lsblib.lsb_hostcontrol(hostName, lsblib.HOST_CLOSE)
+#this test will close hosts in our production system, so don't do that
+#    def test_hostcontrol(self):
+#        hosts = lsblib.lsb_hostinfo()
+#        for h in hosts:
+#            if h.hStatus & (constants.HOST_STAT_OK | constants.HOST_STAT_BUSY) != 0:
+#                hostName = h.host
+#                code = lsblib.lsb_hostcontrol(hostName, constants.HOST_CLOSE)
+#                code = lsblib.lsb_hostcontrol(hostName, constants.HOST_OPEN)
 
 
     def test_xFile(self):
@@ -97,7 +104,7 @@ class Lsblib(unittest.TestCase):
     def test_jobs(self):
         try:
             num_jobs = lsblib.lsb_openjobinfo()
-            self.assertEqual(lsblib.get_lsberrno(), lsblib.LSBE_NO_ERROR)
+            self.assertEqual(lsblib.get_lsberrno(), constants.LSBE_NO_ERROR)
             for i in range(num_jobs):
                 job = lsblib.lsb_readjobinfo()
                 self.check_job(job)
@@ -286,15 +293,15 @@ class Lsblib(unittest.TestCase):
             while (True):
                 rec = lsblib.lsb_geteventrec(f, row_num)
                 if rec == None:
-                    if lsblib.get_lsberrno() == lsblib.LSBE_EOF:
+                    if lsblib.get_lsberrno() == constants.LSBE_EOF:
                         break
-                if lsblib.get_lsberrno() == lsblib.LSBE_EVENT_FORMAT:
+                if lsblib.get_lsberrno() == constants.LSBE_EVENT_FORMAT:
                     print "Bad Row: %s in %s" % (row_num, fname)
                     continue
-                self.assertEqual(lsblib.get_lsberrno(), lsblib.LSBE_NO_ERROR)
+                self.assertEqual(lsblib.get_lsberrno(), constants.LSBE_NO_ERROR)
 
 
-class Lslib(unittest.TestCase):
+class LslibTest(unittest.TestCase):
     def test_clustername(self):
         self.assertTrue(lslib.ls_getclustername())
 
@@ -416,8 +423,8 @@ class Lslib(unittest.TestCase):
 
 
 suite = unittest.TestSuite()
-suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Lsblib))
-suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Lslib))
+suite.addTests(unittest.TestLoader().loadTestsFromTestCase(LsblibTest))
+suite.addTests(unittest.TestLoader().loadTestsFromTestCase(LslibTest))
 
 if __name__ == '__main__':
     unittest.main()

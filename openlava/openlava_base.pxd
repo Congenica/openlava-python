@@ -16,15 +16,11 @@
 # along with openlava-python.  If not, see <http://www.gnu.org/licenses/>.
 
 from libc.stdio cimport *
+from lstypes cimport *
+
+__all__ = ['lsfRusage', 'jobNewLog', 'logSwitchLog', 'jobModLog', 'jobStartLog', 'jobStartAcceptLog', 'jobExecuteLog', 'jobStatusLog', 'sbdJobStatusLog', 'jobSwitchLog', 'jobMoveLog', 'chkpntLog,jobRequeueLog', 'jobCleanLog', 'sigactLog', 'migLog', 'signalLog', 'queueCtrlLog', 'newDebugLog', 'hostCtrlLog', 'mbdStartLog', 'mbdDieLog', 'unfulfillLog', 'jobFinishLog', 'loadIndexLog', 'jobMsgLog', 'jobMsgAckLog', 'jobForceRequestLog', 'jobAttrSetLog', 'eventLog', 'eventRec', 'submit', 'hostInfoEnt', 'jRusage', 'jobInfoEnt', 'jobrequeue', 'pidInfo', 'queueInfoEnt', 'submitReply', 'userInfoEnt', 'xFile', 'jobInfoHead', 'loadIndexLog']
 
 cdef extern from "lsbatch.h":
-
-    ctypedef long long int LS_LONG_INT
-    ctypedef unsigned long long LS_UNS_LONG_INT
-
-    ctypedef long time_t
-    ctypedef unsigned short u_short
-
     extern int lsberrno
 
     extern struct  lsfRusage:
@@ -645,12 +641,8 @@ cdef extern from "lsbatch.h":
     extern char         *lsb_suspreason (int, int, loadIndexLog *)
 
 cdef extern from "lsf.h":
-
-    int LSF_RLIMIT_RSS
-
-    extern enum valueType: LS_BOOLEAN, LS_NUMERIC, LS_STRING, LS_EXTERNAL
-    extern enum orderType: INCR, DECR, NA
-
+    extern int lserrno
+ 
     extern struct clusterInfo:
         char  clusterName[128]
         int   status
@@ -708,7 +700,7 @@ cdef extern from "lsf.h":
 
     extern struct resItem:
         char name[128]
-        char des[256]
+        char des[257]
         valueType valueType
         orderType orderType
         int  flags
