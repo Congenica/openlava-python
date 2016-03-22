@@ -18,10 +18,8 @@
 from libc.stdio cimport *
 from lstypes cimport *
 
-__all__ = ['lsfRusage', 'jobNewLog', 'logSwitchLog', 'jobModLog', 'jobStartLog', 'jobStartAcceptLog', 'jobExecuteLog', 'jobStatusLog', 'sbdJobStatusLog', 'jobSwitchLog', 'jobMoveLog', 'chkpntLog,jobRequeueLog', 'jobCleanLog', 'sigactLog', 'migLog', 'signalLog', 'queueCtrlLog', 'newDebugLog', 'hostCtrlLog', 'mbdStartLog', 'mbdDieLog', 'unfulfillLog', 'jobFinishLog', 'loadIndexLog', 'jobMsgLog', 'jobMsgAckLog', 'jobForceRequestLog', 'jobAttrSetLog', 'eventLog', 'eventRec', 'submit', 'hostInfoEnt', 'jRusage', 'jobInfoEnt', 'jobrequeue', 'pidInfo', 'queueInfoEnt', 'submitReply', 'userInfoEnt', 'xFile', 'jobInfoHead', 'loadIndexLog']
-
 cdef extern from "lsbatch.h":
-    extern int lsberrno
+    extern int lsberrno #don't know where exactly this should go
 
     extern struct  lsfRusage:
         double ru_utime
@@ -608,40 +606,15 @@ cdef extern from "lsbatch.h":
         logSwitchLog logSwitchLog
         jobModLog jobModLog
         jobAttrSetLog jobAttrSetLog
-
-
-
+    
     extern struct eventRec:
         char   version[12]
         int    type
         time_t eventTime
         eventLog eventLog
 
-    extern void          lsb_closejobinfo()
-    extern int           lsb_deletejob (LS_LONG_INT jobId, int times, int options)
-    extern eventRec     *lsb_geteventrec(FILE * log_fp, int * lineNum)
-    extern int           lsb_hostcontrol(char *host, int opCode)
-    extern hostInfoEnt  *lsb_hostinfo(char **hosts, int *numHosts)
-    extern int           lsb_init (char *appName)
-    extern LS_LONG_INT   lsb_modify (submit *, submitReply *, LS_LONG_INT)
-    extern int           lsb_openjobinfo (long, char *, char *, char *, char *,int)
-    extern jobInfoHead  *lsb_openjobinfo_a(long, char *, char *, char *, char *, int)
-    extern char         *lsb_peekjob(unsigned long jobId)
-    extern char         *lsb_pendreason (int numReasons, int *rsTb, jobInfoHead *jInfoH, loadIndexLog *ld)
-    extern void          lsb_perror(char *)
-    extern int           lsb_queuecontrol(char *queue, int opCode)
-    extern queueInfoEnt *lsb_queueinfo (char **queues, int *numQueues, char *host, char *userName, int options)
-    extern jobInfoEnt   *lsb_readjobinfo( int * )
-    extern int           lsb_requeuejob(jobrequeue * reqPtr)
-    extern int           lsb_reconfig(int)
-    extern int           lsb_signaljob (LS_LONG_INT jobId, int sigValue)
-    extern LS_LONG_INT   lsb_submit ( submit * subPtr, submitReply * repPtr)
-    extern char         *lsb_sysmsg()
-    extern userInfoEnt  *lsb_userinfo(char **users, int *numUsers)
-    extern char         *lsb_suspreason (int, int, loadIndexLog *)
-
 cdef extern from "lsf.h":
-    extern int lserrno
+    extern int lserrno #not technically a struct but w/e
  
     extern struct clusterInfo:
         char  clusterName[128]
@@ -660,7 +633,6 @@ cdef extern from "lsf.h":
         int    nAdmins
         int  *adminIds
         char **admins
-
 
     extern struct hostInfo:
         char  hostName[64]
@@ -705,19 +677,4 @@ cdef extern from "lsf.h":
         orderType orderType
         int  flags
         int  interval
-
-    extern clusterInfo *ls_clusterinfo(char *resreq, int *numclusters, char **clusterlist, int listsize, int options)
-    extern char         *ls_getclustername()
-    extern float         *ls_gethostfactor(char *hostname)
-    extern hostInfo     *ls_gethostinfo(char *resreq, int *numhosts, char **hostlist, int listsize, int options)
-    extern char          *ls_gethostmodel(char *hostname)
-    extern char          *ls_gethosttype(char *hostname)
-    extern char         *ls_getmastername()
-    extern lsInfo         *ls_info()
-    extern hostLoad     *ls_load(char *resreq, int *numhosts, int options, char *fromhost)
-    extern hostLoad     *ls_loadinfo(char *resreq, int *numhosts,int options, char *fromhost, char **hostlist,int listsize, char ***indxnamelist)
-    extern void             ls_perror(char *usrMsg)
-    extern char            *ls_sysmsg()
-
-
 
