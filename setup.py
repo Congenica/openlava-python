@@ -27,13 +27,16 @@ from Cython.Build import cythonize
 
 from openlava.utils import find_openlava
 
-lsfdir = find_openlava()
+lsf_dir = find_openlava()
+print "Detected openlava dir: {}".format(lsf_dir)
 
-lsf = os.path.join(lsfdir, "lib", "liblsf.a")
-lsbatch = os.path.join(lsfdir, "lib", "liblsbatch.a")
+inc_dir = os.path.join(lsf_dir, "include")
+lib_dir = os.path.join(lsf_dir, "lib")
 
-inc_dir = os.path.join(lsfdir,"include")
-lib_dir = os.path.join(lsfdir,"lib")
+#without these lserrno can't be found, i don't know why.
+#need to fix that really
+lsf = os.path.join(lsf_dir, "lib", "liblsf.a")
+lsbatch = os.path.join(lsf_dir, "lib", "liblsbatch.a")
 
 if not os.path.exists(lsf):
     raise ValueError("Cannot find liblsf.a ({} does not exist)".format(lsf))
@@ -44,10 +47,11 @@ extensions = [
     Extension(
         "*", ["openlava/*.pyx"],
         extra_compile_args = ["-O3", "-Wall"],
-        extra_link_args    = ['-g'],
+#        extra_link_args    = ['-rdynamic'], #something will need to be set here to get rid of the .a dependency
+        runtime_library_dirs = [lib_dir], #so we don't need LD_LIBRARY_PATH
         extra_objects      = [lsf, lsbatch],
         libraries          = ['lsf','lsbatch','nsl'],
-        include_dirs       = [inc_dir,"."],
+        include_dirs       = [inc_dir, "."],
         library_dirs       = [lib_dir],
     )
 ]
