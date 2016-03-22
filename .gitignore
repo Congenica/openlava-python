@@ -45,3 +45,5 @@ debug.sh
 
 *lslib.c
 *lsblib.c
+*constants.c
+*.swp
