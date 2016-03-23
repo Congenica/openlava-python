@@ -107,12 +107,19 @@ cdef char * string_copy(char * dest, src_p, free_dest=True):
     if free_dest and dest != NULL:
         free(dest)
 
-    new = <char *>malloc(sizeof(char) * len(src_p))
+    #+1 for end character \0
+    new = <char *>malloc(sizeof(char) * (len(src_p)+1))
     if new == NULL:
         raise MemoryError("Unable to allocate memory for string")
 
     strcpy(new, src)
     return new
+
+cpdef char * return_string(char * string):
+    if string is not NULL:
+        return <bytes>string
+    else:
+        return ""
 
 @contextlib.contextmanager
 def set_env(environment):
@@ -609,7 +616,7 @@ Get information about jobs that match the specified criteria.
         return 0
 
     lsb_perror("lsb_openjobinfo_a")
-    raise Exception("Error calling lsb_openjobinfo_a")
+    raise Exception("Error calling lsb_openjobinfo_a: lsberrno {}".format(lsberrno))
 
 def lsb_pendreason (numReasons, rsTb, jInfoH, ld):
     """openlava.lsblib.lsb_pendreason(numReasons, rsTb, jInfoH, ld)
@@ -1688,6 +1695,17 @@ cdef class Submit:
     cdef submit * _data
     cdef dict environment
 
+    def __str__(self):
+        fields = []
+        for attr in dir(self):
+            if not attr.startswith("_"):
+                field = getattr(self, attr)
+                if type(field) == 'builtin_function_or_method':
+                    continue
+                fields.append("{} => {}".format(attr, getattr(self, attr)))
+
+        return '<Submit: ' + ', '.join(fields) + '>'
+
     def __cinit__(self, initialise=True, environment=None):
         self.initialise = initialise
         self.environment = environment
@@ -1729,6 +1747,9 @@ cdef class Submit:
             with set_env(self.environment):
                 job_id = lsmethods.lsb_submit(self._data, sr._data)
                 sr._set_job_id(job_id)
+                if job_id == -1:
+                    lsb_perror("lsb_submit")
+                    raise Exception("Error submitting job")
 
         return sr
 
@@ -1806,7 +1827,7 @@ cdef class Submit:
 
     property memory:
         def __get__(self):
-            return self._data.rLimits[LSF_RLIMIT_RSS]
+            return self._data.rLimits[LSF_RLIMIT_RSS] if self._data.rLimits[LSF_RLIMIT_RSS] != -1 else "0"
         def __set__(self, memory):
             self._data.options2 |= SUB2_MODIFY_RUN_JOB
             #TODO: validation like checkRLDelOption
@@ -1837,7 +1858,7 @@ cdef class Submit:
 
     property jobName:
         def __get__(self):
-            return <bytes>self._data.jobName
+            return return_string(self._data.jobName)
         def __set__(self, v):
             self._data.options2 |= SUB2_MODIFY_PEND_JOB
             self._data.jobName = string_copy(self._data.jobName, v)
@@ -1845,7 +1866,7 @@ cdef class Submit:
 
     property queue:
         def __get__(self):
-            return <bytes>self._data.queue
+            return return_string(self._data.queue)
         def __set__(self, v):
             self._data.options2 |= SUB2_MODIFY_PEND_JOB
             self._data.queue = string_copy(self._data.queue, v)
@@ -1858,14 +1879,14 @@ cdef class Submit:
 
     property askedHosts:
         def __get__(self):
-            return [<bytes>self._data.askedHosts[i] for i in range(self.numAskedHosts)]
+            return [return_string(self._data.askedHosts[i]) for i in range(self.numAskedHosts)]
         def __set__(self, hosts):
             self._data.askedHosts = to_cstring_array(hosts)
             self._data.numAskedHosts = len(hosts)
 
     property resReq:
         def __get__(self):
-            return <bytes>self._data.resReq
+            return return_string(self._data.resReq)
         def __set__(self, v):
             v = v.lstrip() #preceding whitespace will break
             self._data.resReq = string_copy(self._data.resReq, v)
@@ -1883,7 +1904,7 @@ cdef class Submit:
 
     property hostSpec:
         def __get__(self):
-            return <bytes>self._data.hostSpec
+            return return_string(self._data.hostSpec)
         def __set__(self, v):
             self._data.hostSpec = string_copy(self._data.hostSpec, v)
 
@@ -1906,7 +1927,7 @@ cdef class Submit:
 
     property dependCond:
         def __get__(self):
-            return <bytes>self._data.dependCond
+            return return_string(self._data.dependCond)
         def __set__(self,v):
             self._data.dependCond = string_copy(self._data.dependCond, v)
 
@@ -1930,13 +1951,13 @@ cdef class Submit:
 
     property inFile:
         def __get__(self):
-            return <bytes>self._data.inFile
+            return return_string(self._data.inFile)
         def __set__(self, v):
             self._data.inFile = string_copy(self._data.inFile, v)
 
     property outFile:
         def __get__(self):
-            return <bytes>self._data.outFile
+            return return_string(self._data.outFile)
         def __set__(self, v):
             self._data.options2 |= SUB2_MODIFY_RUN_JOB
             #TODO: same as below
@@ -1946,7 +1967,7 @@ cdef class Submit:
 
     property errFile:
         def __get__(self):
-            return <bytes>self._data.errFile
+            return return_string(self._data.errFile)
         def __set__(self,v):
             self._data.options2 |= SUB2_MODIFY_RUN_JOB
             #TODO: check MAXFILENAMELEN,
@@ -1956,13 +1977,13 @@ cdef class Submit:
 
     property command:
         def __get__(self):
-            return <bytes>self._data.command
+            return return_string(self._data.command)
         def __set__(self, v):
             self._data.command = string_copy(self._data.command, v)
 
     property newCommand:
         def __get__(self):
-            return <bytes>self._data.newCommand
+            return return_string(self._data.newCommand)
         def __set__(self, v):
             self._data.newCommand = string_copy(self._data.newCommand, v)
 
@@ -1974,7 +1995,7 @@ cdef class Submit:
 
     property chkpntDir:
         def __get__(self):
-            return <bytes>self._data.chkpntDir
+            return return_string(self._data.chkpntDir)
         def __set__(self, v):
             self._data.chkpntDir = string_copy(self._data.chkpntDir, v)
 
@@ -2013,13 +2034,13 @@ cdef class Submit:
 
     property preExecCmd:
         def __get__(self):
-            return <bytes>self._data.preExecCmd
+            return return_string(self._data.preExecCmd)
         def __set__(self, v):
             self._data.preExecCmd = string_copy(self._data.preExecCmd, v)
 
     property mailUser:
         def __get__(self):
-            return <bytes>self._data.mailUser
+            return return_string(self._data.mailUser)
         def __set__(self, v):
             self._data.mailUser = string_copy(self._data.mailUser, v)
 
@@ -2037,7 +2058,7 @@ cdef class Submit:
 
     property projectName:
         def __get__(self):
-            return <bytes>self._data.projectName
+            return return_string(self._data.projectName)
         def __set__(self, v):
             self._data.options2 |= SUB2_MODIFY_PEND_JOB
             self._data.projectName = string_copy(self._data.projectName, v)
@@ -2051,7 +2072,7 @@ cdef class Submit:
 
     property loginShell:
         def __get__(self):
-            return <bytes>self._data.loginShell
+            return return_string(self._data.loginShell)
         def __set__(self, v):
             self._data.loginShell = string_copy(self._data.loginShell, v)
 
@@ -2129,13 +2150,13 @@ cdef class SubmitReply:
 
     property queue:
         def __get__(self):
-            return self._data.queue if self._data.queue is not NULL else ""
+            return return_string(self._data.queue)
         #def __set__(self, v):
         #    self._data.queue = string_copy(self._data.queue, v)
 
     property badJobName:
         def __get__(self):
-            return self._data.badJobName if self._data.badJobName is not NULL else ""
+            return return_string(self._data.badJobName)
         #def __set__(self, v):
         #    self._data.badJobName = string_copy(self._data.badJobName, v)
 
