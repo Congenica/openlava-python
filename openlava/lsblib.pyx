@@ -70,8 +70,8 @@ from lsconstants cimport *
 from lstypes cimport LS_LONG_INT, LS_UNS_LONG_INT
 
 from traceback import print_stack
-from libc.stdlib cimport realloc, malloc, free
-from libc.string cimport strcmp, memset, strcpy, memcpy
+from libc.stdlib cimport realloc, malloc, calloc, free
+from libc.string cimport strcmp, memset, strcpy, strdup, memcpy
 from cpython.string cimport PyString_AsString
 from cpython cimport bool
 import time
@@ -853,11 +853,10 @@ Get the next job in the list from the MBD.
     if j == NULL:
         return None
 
-    #cdef jobInfoEnt * jinfo = <jobInfoEnt *>malloc(sizeof(jobInfoEnt))
-    #memcpy(jinfo, &j, sizeof(jobInfoEnt))
-    a = JobInfoEnt()
-    a._load_struct(j)
-    return a
+    job_info = JobInfoEnt()
+    JobInfoEnt.copy(j, job_info._data)
+
+    return job_info
 
 def lsb_reconfig(opCode):
     """openlava.lsblib.lsb_reconfig(opCode)
@@ -1187,9 +1186,177 @@ cdef class HostInfoEnt:
 
 cdef class JobInfoEnt:
     cdef jobInfoEnt * _data
+    cdef bool initialise
 
-    cdef _load_struct(self, jobInfoEnt * data ):
-        self._data=data
+    def __cinit__(self, initialise=True):
+        self.initialise = initialise
+        if initialise:
+            #initialise a new Submit struct on the heap and
+            #set self._data to point to it
+            self._load_struct( JobInfoEnt.new() )
+        else:
+            self._data = NULL
+
+    cdef _load_struct(self, jobInfoEnt * data):
+        self._data = data
+
+    @staticmethod
+    cdef jobInfoEnt * new():
+        """This should be in openlava. it creates a Submit struct on the heap and returns a pointer"""
+        cdef jobInfoEnt * j = <jobInfoEnt *>malloc(sizeof(jobInfoEnt))
+        if j is NULL:
+            raise MemoryError("Could not malloc enough memory for new submit struct")
+
+        JobInfoEnt.reset(j)
+
+        return j
+
+    @staticmethod
+    cdef int reset(jobInfoEnt * j) except -1:
+        j.status             = 0
+        j.numReasons         = 0
+        j.reasons            = 0
+        j.subreasons         = 0
+        j.jobPid             = 0
+        j.submitTime         = 0
+        j.reserveTime        = 0
+        j.startTime          = 0
+        j.predictedStartTime = 0
+        j.endTime            = 0
+        j.cpuTime            = 0.0
+        j.umask              = 0
+        j.numExHosts         = 0
+        j.cpuFactor          = 0.0
+        j.nIdx               = 0
+        j.exitStatus         = -1
+        j.execUid            = 0
+        j.jType              = 0
+        j.port               = 0
+        j.jobPriority        = 0
+
+        for i in range(NUM_JGRP_COUNTERS):
+            j.counter[i] = -1
+
+        #strings
+        j.user         = NULL
+        j.cwd          = NULL
+        j.subHomeDir   = NULL
+        j.fromHost     = NULL
+        j.execHome     = NULL
+        j.execCwd      = NULL
+        j.execUsername = NULL
+        j.parentGroup  = NULL
+        j.jName        = NULL
+
+        #arrays
+        j.exHosts   = NULL
+        j.reasonTb  = NULL
+        j.loadSched = NULL
+        j.loadStop  = NULL
+
+        #structs
+        Submit.reset(&j.submit)
+        JRusage.reset(&j.runRusage)
+
+    @staticmethod
+    cdef int copy(jobInfoEnt * src, jobInfoEnt * dest) except -1:
+        dest.jobId              = src.jobId
+        dest.status             = src.status
+        dest.numReasons         = src.numReasons
+        dest.reasons            = src.reasons
+        dest.subreasons         = src.subreasons
+        dest.jobPid             = src.jobPid
+        dest.submitTime         = src.submitTime
+        dest.reserveTime        = src.reserveTime
+        dest.startTime          = src.startTime
+        dest.predictedStartTime = src.predictedStartTime
+        dest.endTime            = src.endTime
+        dest.cpuTime            = src.cpuTime
+        dest.umask              = src.umask
+        dest.numExHosts         = src.numExHosts
+        dest.cpuFactor          = src.cpuFactor
+        dest.nIdx               = src.nIdx
+        dest.exitStatus         = src.exitStatus
+        dest.execUid            = src.execUid
+        dest.jRusageUpdateTime  = src.jRusageUpdateTime
+        dest.jType              = src.jType
+        dest.port               = src.port
+        dest.jobPriority        = src.jobPriority
+
+        for i in range(NUM_JGRP_COUNTERS):
+            dest.counter[i] = src.counter[i]
+
+        #strings
+        dest.user         = strdup(src.user) if src.user is not NULL else NULL
+        dest.cwd          = strdup(src.cwd) if src.cwd is not NULL else NULL
+        dest.subHomeDir   = strdup(src.subHomeDir) if src.subHomeDir is not NULL else NULL
+        dest.fromHost     = strdup(src.fromHost) if src.fromHost is not NULL else NULL
+        dest.execHome     = strdup(src.execHome) if src.execHome is not NULL else NULL
+        dest.execCwd      = strdup(src.execCwd) if src.execCwd is not NULL else NULL
+        dest.execUsername = strdup(src.execUsername) if src.execUsername is not NULL else NULL
+        dest.parentGroup  = strdup(src.parentGroup) if src.parentGroup is not NULL else NULL
+        dest.jName        = strdup(src.jName) if src.jName is not NULL else NULL
+
+        #exHosts - is an array of strings, so have to malloc an array to hold all the pointers, then copy strings
+        dest.exHosts = <char **>malloc(src.numExHosts * sizeof(char *)) #initialise array
+        dest.reasonTb = <int *>calloc(src.numReasons, sizeof(int))
+        dest.loadSched = <float *>calloc(src.nIdx, sizeof(float))
+        dest.loadStop = <float *>calloc(src.nIdx, sizeof(float))
+
+        if dest.exHosts is NULL or dest.reasonTb is NULL or dest.loadSched is NULL or dest.loadStop is NULL:
+            raise MemoryError("Couldn't allocate memory")
+
+        #now copy over the values
+        for i in range(src.numExHosts):
+            dest.exHosts[i] = strdup(src.exHosts[i]) if src.exHosts[i] is not NULL else NULL
+
+        #these are all arrays of some kind
+        for i in range(src.numReasons):
+            dest.reasonTb[i] = src.reasonTb[i]
+
+        for i in range (src.nIdx):
+            dest.loadSched[i] = src.loadSched[i]
+
+        for i in range(src.nIdx):
+            dest.loadStop[i] = src.loadStop[i]
+
+        #copy the submit struct over too
+        Submit.copy(&src.submit, &dest.submit)
+        JRusage.copy(&src.runRusage, &dest.runRusage)
+
+    @staticmethod
+    cdef void free(jobInfoEnt * j):
+        #god damn cython doesn't let me do getattr or __getitem__
+        if j.user is not NULL: free(j.user)
+        if j.cwd is not NULL: free(j.cwd)
+        if j.subHomeDir is not NULL: free(j.subHomeDir)
+        if j.fromHost is not NULL: free(j.fromHost)
+        if j.execHome is not NULL: free(j.execHome)
+        if j.execCwd is not NULL: free(j.execCwd)
+        if j.execUsername is not NULL: free(j.execUsername)
+        if j.parentGroup is not NULL: free(j.parentGroup)
+        if j.jName is not NULL: free(j.jName)
+
+        #char **
+        if j.exHosts is not NULL:
+            for i in range(j.numExHosts):
+                free(j.exHosts[i])
+
+            free(j.exHosts)
+
+        if j.reasonTb is not NULL: free(j.reasonTb)
+        if j.loadSched is not NULL: free(j.loadSched)
+        if j.loadStop is not NULL: free(j.loadStop)
+
+        #don't free the root struct for these as it is not a pointer for some stupid reason
+        Submit.free(&j.submit, free_struct=False)
+        JRusage.free(&j.runRusage, free_struct=False)
+
+        free(j)
+
+    def __dealloc__(self):
+        if self.initialise and self._data is not NULL:
+            JobInfoEnt.free(self._data)
 
     @staticmethod
     def header_text():
@@ -1229,7 +1396,7 @@ cdef class JobInfoEnt:
             return mapping[self._data.status]
         else:
             return "ERROR"
-        
+
     property jobId:
         def __get__(self):
             return self._data.jobId
@@ -1328,8 +1495,8 @@ cdef class JobInfoEnt:
 
     property submit:
         def __get__(self):
-            s = Submit(initialise=False)
-            s._load_struct(&self._data.submit)
+            s = Submit()
+            Submit.copy(&self._data.submit, s._data)
             return s
 
     property exitStatus:
@@ -1358,8 +1525,9 @@ cdef class JobInfoEnt:
 
     property runRusage:
         def __get__(self):
-            r=JRusage()
-            r._load_struct(&self._data.runRusage)
+            r = JRusage()
+            JRusage.copy(&self._data.runRusage, r._data)
+
             return r
 
     property jType:
@@ -1376,7 +1544,7 @@ cdef class JobInfoEnt:
 
     property counter:
         def __get__(self):
-            return [self._data.counter[i] for i in range(7)]
+            return [self._data.counter[i] for i in range(NUM_JGRP_COUNTERS)]
 
     property port:
         def __get__(self):
@@ -1423,9 +1591,76 @@ cdef class JobRequeue:
 
 cdef class JRusage:
     cdef jRusage * _data
+    cdef bool initialise
+
+    def __cinit__(self, initialise=True):
+        self.initialise = initialise
+        if initialise:
+            #initialise a new Submit struct on the heap and
+            #set self._data to point to it
+            self._load_struct( JRusage.new() )
+        else:
+            self._data = NULL
 
     cdef _load_struct(self, jRusage * data ):
         self._data=data
+
+    @staticmethod
+    cdef jRusage * new():
+        cdef jRusage * jr = <jRusage *>malloc(sizeof(jRusage))
+        if jr is NULL:
+            raise MemoryError("Could not malloc enough memory for new jRusage struct")
+
+        JRusage.reset(jr)
+
+        return jr
+
+    @staticmethod
+    cdef int reset(jRusage * jr) except -1:
+        jr.mem = 0
+        jr.swap = 0
+        jr.utime = 0
+        jr.stime = 0
+        jr.npids = 0
+        jr.npgids = 0
+
+        jr.pidInfo = NULL
+        jr.pgid = NULL
+
+    @staticmethod
+    cdef int copy(jRusage * src, jRusage * dest) except -1:
+        dest.mem = src.mem
+        dest.swap = src.swap
+        dest.utime = src.utime
+        dest.stime = src.utime
+        dest.npids = src.npids
+        dest.npgids = src.npgids
+
+        dest.pgid = <int *>calloc(src.npgids, sizeof(int))
+        if dest.pgid is NULL:
+            raise MemoryError("Couldn't allocate memory")
+
+        #now copy over the values
+        for i in range(src.npgids):
+            dest.pgid[i] = src.pgid[i]
+
+        #this is an array of pidInfo structs
+        dest.pidInfo = <pidInfo *>calloc(src.npids, sizeof(pidInfo))
+        for i in range(src.npids):
+            PidInfo.copy(&src.pidInfo[i], &dest.pidInfo[i])
+
+    @staticmethod
+    cdef void free(jRusage * jr, free_struct=True):
+        if jr.pgid is not NULL: free(jr.pgid)
+        if jr.pidInfo is not NULL: free(jr.pidInfo)
+
+        #also free the struct itself
+        if free_struct:
+            free(jr)
+
+    def __dealloc__(self):
+        if self.initialise and self._data is not NULL:
+            JRusage.free(self._data)
 
     property mem:
         def __get__(self):
@@ -1451,9 +1686,10 @@ cdef class JRusage:
         def __get__(self):
             pids=[]
             for i in range(self.npids):
-                p=PidInfo()
-                p._load_struct(self._data.pidInfo)
+                p = PidInfo()
+                PidInfo.copy(&self._data.pidInfo[i], p._data)
                 pids.append(p)
+
             return pids
 
     property npgids:
@@ -1467,9 +1703,51 @@ cdef class JRusage:
 
 cdef class PidInfo:
     cdef pidInfo * _data
+    cdef bool initialise
+
+    def __cinit__(self, initialise=True):
+        self.initialise = initialise
+        if initialise:
+            #initialise a new Submit struct on the heap and
+            #set self._data to point to it
+            self._load_struct( PidInfo.new() )
+        else:
+            self._data = NULL
 
     cdef _load_struct(self, pidInfo * data ):
-        self._data=data
+        self._data = data
+
+    @staticmethod
+    cdef pidInfo * new():
+        cdef pidInfo * pi = <pidInfo *>malloc(sizeof(pidInfo))
+        if pi is NULL:
+            raise MemoryError("Could not malloc enough memory for new pidInfo struct")
+
+        PidInfo.reset(pi)
+
+        return pi
+
+    @staticmethod
+    cdef int reset(pidInfo * pi) except -1:
+        pi.pid = 0
+        pi.ppid = 0
+        pi.pgid = 0
+        pi.jobid = 0
+
+    @staticmethod
+    cdef int copy(pidInfo * src, pidInfo * dest) except -1:
+        dest.pid = src.pid
+        dest.ppid = src.ppid
+        dest.pgid = src.pgid
+        dest.jobid = src.jobid
+
+    @staticmethod
+    cdef void free(pidInfo * pi):
+        free(pi)
+
+    def __dealloc__(self):
+        if self.initialise and self._data is not NULL:
+            PidInfo.free(self._data)
 
     property pid:
         def __get__(self):
@@ -1760,6 +2038,13 @@ cdef class Submit:
         if s is NULL:
             raise MemoryError("Could not malloc enough memory for new submit struct")
 
+        Submit.reset(s)
+
+        return s
+
+    @staticmethod
+    cdef int reset(submit * s) except -1:
+        """Utility method to reset a submit struct to default values"""
         s.options = 0
         s.options2 = 0
         s.jobName = NULL
@@ -1794,10 +2079,52 @@ cdef class Submit:
         s.loginShell = NULL
         s.userPriority = -1
 
-        return s
+    @staticmethod
+    cdef int copy(submit * src, submit * dest) except -1:
+        """Copy data from one submit struct to another. If dest has pointers to heap memory (strings) they will not be freed"""
+
+        #copy the easy fixed size fields first
+        dest.options          = src.options
+        dest.options2         = src.options2
+        dest.numProcessors    = src.numProcessors
+        dest.beginTime        = src.beginTime
+        dest.termTime         = src.termTime
+        dest.sigValue         = src.sigValue
+        dest.chkpntPeriod     = src.chkpntPeriod
+        dest.delOptions       = src.delOptions
+        dest.delOptions2      = src.delOptions2
+        dest.maxNumProcessors = src.maxNumProcessors
+        dest.userPriority     = src.userPriority
+        for i in range(LSF_RLIM_NLIMITS):
+            dest.rLimits[i] = src.rLimits[i]
+
+        #FOR NOW THIS WILL LEAK MEMORY IF ANY OF THESE ARE POINTERS TO HEAP MEMORY
+
+        #now copy all the strings
+        if src.jobName     is not NULL: dest.jobName     = strdup(src.jobName)
+        if src.queue       is not NULL: dest.queue       = strdup(src.queue)
+        if src.resReq      is not NULL: dest.resReq      = strdup(src.resReq)
+        if src.hostSpec    is not NULL: dest.hostSpec    = strdup(src.hostSpec)
+        if src.dependCond  is not NULL: dest.dependCond  = strdup(src.dependCond)
+        if src.inFile      is not NULL: dest.inFile      = strdup(src.inFile)
+        if src.outFile     is not NULL: dest.outFile     = strdup(src.outFile)
+        if src.errFile     is not NULL: dest.errFile     = strdup(src.errFile)
+        if src.command     is not NULL: dest.command     = strdup(src.command)
+        if src.newCommand  is not NULL: dest.newCommand  = strdup(src.newCommand)
+        if src.chkpntDir   is not NULL: dest.chkpntDir   = strdup(src.chkpntDir)
+        if src.preExecCmd  is not NULL: dest.preExecCmd  = strdup(src.preExecCmd)
+        if src.mailUser    is not NULL: dest.mailUser    = strdup(src.mailUser)
+        if src.projectName is not NULL: dest.projectName = strdup(src.projectName)
+        if src.loginShell  is not NULL: dest.loginShell  = strdup(src.loginShell)
+
+        #im going to ignore this for now because i don't even want it
+        #dest.numAskedHosts    = src.numAskedHosts
+        #strdup(dest.jobName) this is an array of arrays, cRap
+        #also ignoring xFile because I don't know what it is
+        #if dest.nxf              is not NULL: dest.nxf              = src.nxf
 
     @staticmethod
-    cdef void free(submit * s):
+    cdef void free(submit * s, free_struct=True):
         #return codes from free?
 
         #god damn cython doesn't let me do getattr or __getitem__
@@ -1819,7 +2146,8 @@ cdef class Submit:
         if s.projectName is not NULL: free(s.projectName)
         if s.loginShell is not NULL: free(s.loginShell)
 
-        free(s)
+        if free_struct:
+            free(s)
 
     #utility methods so we have an actually useful interface
     #for setting job options. this functionality is copied
