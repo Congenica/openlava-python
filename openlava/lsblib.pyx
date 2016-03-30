@@ -1080,10 +1080,32 @@ Get information on specified users
         usrs.append(user)
     return usrs
 
+#stolen from stackoverflow
+def format_memory(size):
+    suffixes = ['B','KB','MB','GB','TB']
+    suffixIndex = 0
+    while size > 1024 and suffixIndex < 4:
+        suffixIndex += 1 #increment the index of the suffix
+        size = size / 1024.0 #apply the division
+   
+    return '{:.0f}{}'.format(size, suffixes[suffixIndex])
+
+def format_seconds(seconds):
+    """Convert seconds to a time string "[[[DD:]HH:]MM:]SS"."""
+    if isinstance(seconds, float):
+        seconds = int(seconds)
+    dhms = ''
+    for scale in 3600, 60:
+        result, seconds = divmod(seconds, scale)
+        dhms += '{0:02d}:'.format(result)
+    dhms += '{0:02d}'.format(seconds)
+
+    return dhms
+
 cdef class HostInfoEnt:
     cdef hostInfoEnt * _data
 
-    cdef _load_struct(self, hostInfoEnt * data ):
+    cdef _load_struct(self, hostInfoEnt * data):
         self._data=data
 
     def __str__(self):
@@ -1401,22 +1423,23 @@ cdef class JobInfoEnt:
         """Convert a JobInfoEnt object into a dict"""
 
         #get the usage
+        time_fmt = '%B %d %H:%M:%S'
         return {
             'job_id'      : self.jobId,
             'user'        : self.user,
             'status'      : self.status,
             'pid'         : self.jobPid,
-            'submit_time' : self.submitTime,
-            'start_time'  : self.startTime,
-            'end_time'    : self.endTime,
-            'cpu_time'    : self.cpuTime,
+            'submit_time' : time.strftime(time_fmt, self.submitTime),
+            'start_time'  : time.strftime(time_fmt, self.startTime),
+            'end_time'    : time.strftime(time_fmt, self.endTime),
+            'cpu_time'    : format_seconds(self.cpuTime),
             'cwd'         : self.cwd,
             'from_host'   : self.fromHost,
             'exec_hosts'  : self.exHosts,
-            'exit_status' : self.exitStatus,
+            'exit_code'   : self.exitCode,
             'exec_cwd'    : self.execCwd,
             'job_name'    : self.jName,
-            'usage'       : self.runRusage.as_dict()
+            'usage'       : self.runRusage
         }
 
     property jobId:
@@ -1473,7 +1496,7 @@ cdef class JobInfoEnt:
 
     property cpuTime:
         def __get__(self):
-            return time.localtime(self._data.cpuTime)
+            return self._data.cpuTime
 
     property umask:
         def __get__(self):
@@ -1524,6 +1547,12 @@ cdef class JobInfoEnt:
     property exitStatus:
         def __get__(self):
             return self._data.exitStatus
+
+    property exitCode:
+        def __get__(self):
+            #stolen from the LS_WEXITSTATUS macro in openlava
+            #the exit status has other information in it other than just the exit code
+            return (self._data.exitStatus >> 8) & 0xFF
 
     property execUid:
         def __get__(self):
@@ -1691,6 +1720,15 @@ cdef class JRusage:
             'utime': self.utime,
             'stime': self.stime
         }
+
+    def __str__(self):
+        text = '<JRusage: memory - {}, swap - {}, user time - {}, system time - {}>'
+        return text.format(
+            format_memory(self.mem),
+            format_memory(self.swap),
+            format_seconds(self.utime),
+            format_seconds(self.stime)
+        ) 
 
     property mem:
         def __get__(self):
