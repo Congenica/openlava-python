@@ -1397,6 +1397,28 @@ cdef class JobInfoEnt:
         else:
             return "ERROR"
 
+    def as_dict(self):
+        """Convert a JobInfoEnt object into a dict"""
+
+        #get the usage
+        return {
+            'job_id'      : self.jobId,
+            'user'        : self.user,
+            'status'      : self.status,
+            'pid'         : self.jobPid,
+            'submit_time' : self.submitTime,
+            'start_time'  : self.startTime,
+            'end_time'    : self.endTime,
+            'cpu_time'    : self.cpuTime,
+            'cwd'         : self.cwd,
+            'from_host'   : self.fromHost,
+            'exec_hosts'  : self.exHosts,
+            'exit_status' : self.exitStatus,
+            'exec_cwd'    : self.execCwd,
+            'job_name'    : self.jName,
+            'usage'       : self.runRusage.as_dict()
+        }
+
     property jobId:
         def __get__(self):
             return self._data.jobId
@@ -1661,6 +1683,14 @@ cdef class JRusage:
     def __dealloc__(self):
         if self.initialise and self._data is not NULL:
             JRusage.free(self._data)
+
+    def as_dict(self):
+        return {
+            'mem': self.mem,
+            'swap': self.swap,
+            'utime': self.utime,
+            'stime': self.stime
+        }
 
     property mem:
         def __get__(self):
