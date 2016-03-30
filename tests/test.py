@@ -104,7 +104,7 @@ class LsblibTest(unittest.TestCase):
     def test_jobs(self):
         try:
             num_jobs = lsblib.lsb_openjobinfo()
-            self.assertEqual(lsblib.get_lsberrno(), constants.LSBE_NO_ERROR)
+            self.assertIn(lsblib.get_lsberrno(), [constants.LSBE_NO_ERROR, constants.LSBE_NO_JOB])
             for i in range(num_jobs):
                 job = lsblib.lsb_readjobinfo()
                 self.check_job(job)
@@ -117,103 +117,19 @@ class LsblibTest(unittest.TestCase):
 
     def check_job(self, job):
         self.assertIsInstance(job, lsblib.JobInfoEnt)
-        ints = [
-            'jobId',
-            'numReasons',
-            'reasons',
-            'subreasons',
-            'jobPid',
-            'umask',
-            'numExHosts', 'nIdx',
-            'exitStatus',
-            'execUid',
-            'jType',
-            'port',
-            'jobPriority',
-            'jRusageUpdateTime'
-        ]
-        for attr in ints:
-            self.assertIsInstance(getattr(job, attr), int)
-        for a in range(7):
-            self.assertIsInstance(job.counter[a], int)
 
-        times = [
-            'predictedStartTime',
-            'submitTime',
-            'reserveTime',
-            'startTime',
-            'endTime',
-        ]
-
-        for attr in times:
-            self.assertIsInstance(getattr(job, attr), time.struct_time)
-
-        for attr in ['cwd', 'subHomeDir', 'fromHost', 'execHome', 'execCwd', 'execUsername', 'parentGroup', 'jName', 'status']:
-            self.assertIsInstance(getattr(job, attr), basestring)
-
-        self.assertIsInstance(job.exHosts, list)
-        for host in job.exHosts:
-            self.assertIsInstance(host, basestring)
-
-        self.assertIsInstance(job.loadSched, list)
-        self.assertIsInstance(job.loadStop, list)
-        self.assertEqual(len(job.loadSched), job.nIdx)
-        self.assertEqual(len(job.loadStop), job.nIdx)
-        for l in job.loadSched + job.loadStop + [job.cpuFactor]:
-            self.assertIsInstance(l, float)
-
-        self.assertIsInstance(job.cpuTime, time.struct_time)
+        #__str__ accesses all the fields, so if there is a memory error this should trigger it
+        job.__str__()
 
         s = job.submit
         self.assertIsInstance(s, lsblib.Submit)
-        for attr in [
-            'options',
-            'options2',
-            'numAskedHosts',
-            'numProcessors',
-            'sigValue',
-            'nxf',
-            'delOptions',
-            'delOptions2',
-            'maxNumProcessors',
-            'userPriority',
-            'beginTime',
-            'termTime',
-            'chkpntPeriod',
-        ]:
-            self.assertIsInstance(getattr(s, attr), int)
-        for attr in [
-            'jobName',
-            'queue',
-            'resReq',
-            'hostSpec',
-            'dependCond',
-            'inFile',
-            'outFile',
-            'errFile',
-            'command',
-            'chkpntDir',
-            'preExecCmd',
-            'mailUser',
-            'projectName',
-            'loginShell', ]:
-            self.assertIsInstance(getattr(s, attr), basestring)
         self.assertEqual(len(s.askedHosts), s.numAskedHosts)
-        for h in s.askedHosts:
-            self.assertIsInstance(h, basestring)
         for r in range(10):
-            self.assertIsInstance(s.rLimits[r], int)
             self.assertGreaterEqual(s.rLimits[r], -1)
         xf = s.xf
         self.assertEqual(len(xf), s.nxf)
-        self.assertIsInstance(xf, list)
-        for a in xf:
-            self.assertIsInstance(a.subFn, basestring)
-            self.assertIsInstance(a.execFn, basestring)
-            self.assertIsInstance(a.options, int)
         ru = job.runRusage
         for a in ['mem', 'swap', 'utime', 'stime', 'npids', 'npgids']:
-            self.assertIsInstance(getattr(ru, a), int)
             self.assertGreaterEqual(getattr(ru, a), -1)
             inf = ru.pidInfo
             self.assertEqual(len(inf), ru.npids)
