@@ -137,6 +137,10 @@ def set_env(environment):
         yield
         return
 
+    #make all values strings
+    for key in environment:
+        environment[key] = str(environment[key])
+
     old_environ = dict(os.environ)
     os.environ.clear()
     os.environ.update(environment)
