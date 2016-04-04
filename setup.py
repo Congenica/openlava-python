@@ -25,7 +25,10 @@ from setuptools import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
 
-from openlava.utils import find_openlava
+#openlava.utils has a find_openlava method that we need here,
+#but we can't import it yet because we haven't installed the module
+with open('openlava/utils.py') as f: 
+    exec(f.read())
 
 lsf_dir = find_openlava()
 print "Detected openlava dir: {}".format(lsf_dir)
@@ -58,11 +61,11 @@ extensions = [
 
 setup(
     name         = "openlava-bindings",
-    version      = "1.0",
+    version      = "1.1",
     description  = "Bindings for OpenLava",
     author       = "David Irvine",
     author_email = "irvined@gmail.com",
-    url          = "https://github.com/irvined1982/openlava-python",
+    url          = "https://github.com/congenica/openlava-python",
     license      = "GPL 3",
     ext_modules  = cythonize(extensions),
     test_suite   = 'tests.test.suite',
