@@ -1443,7 +1443,7 @@ cdef class JobInfoEnt:
             'exit_code'   : self.exitCode,
             'exec_cwd'    : self.execCwd,
             'job_name'    : self.jName,
-            'usage'       : self.runRusage.as_dict()
+            'usage'       : str(self.runRusage)
         }
 
     property jobId:
