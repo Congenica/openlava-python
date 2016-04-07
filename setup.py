@@ -61,7 +61,7 @@ extensions = [
 
 setup(
     name         = "openlava-bindings",
-    version      = "1.1",
+    version      = "1.2",
     description  = "Bindings for OpenLava",
     author       = "David Irvine",
     author_email = "irvined@gmail.com",
