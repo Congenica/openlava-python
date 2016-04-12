@@ -94,6 +94,10 @@ cdef extern from "fileobject.h":
         pass
 
 _OPENJOBINFO_COUNT = False
+CONN_RESET_BY_PEER = 104 #from the c errno.h
+
+class ConnectionResetByPeer(Exception):
+    pass
 
 cdef char * string_copy(char * dest, src_p, free_dest=True):
     """
@@ -612,6 +616,7 @@ Get information about jobs that match the specified criteria.
     #numJobs=lsmethods.lsb_openjobinfo(job_id,job_name,user,queue,host,options)
     #return numJobs
     job_info_head = lsmethods.lsb_openjobinfo_a(job_id, job_name, user, queue, host, options)
+    cdef int errno = lserrno #save errno before it gets changed
     if job_info_head is not NULL:
         #theres other stuff in  here we might want
         return job_info_head.numJobs
@@ -619,8 +624,17 @@ Get information about jobs that match the specified criteria.
     if lsberrno == LSBE_NO_JOB:
         return 0
 
+    #there was an error of some kind, we will raise a specific error if it is connection
+    #reset by peer as that seems to happen a lot and it isn't really fatal
+
+    #for some reason after a connection reset by peer we get an errno of 2,
+    #need to track that down and find out where that's getting set before we reach here.
+    #will hack this in for now
+    if lsberrno == LSBE_LSLIB and errno in [CONN_RESET_BY_PEER, 2]:
+        raise ConnectionResetByPeer()
+
     lsb_perror("lsb_openjobinfo_a")
-    raise Exception("Error calling lsb_openjobinfo_a: lsberrno {}".format(lsberrno))
+    raise Exception("Error calling lsb_openjobinfo_a: lsberrno {} (lserrno {})".format(lsberrno, errno))
 
 def lsb_pendreason (numReasons, rsTb, jInfoH, ld):
     """openlava.lsblib.lsb_pendreason(numReasons, rsTb, jInfoH, ld)
