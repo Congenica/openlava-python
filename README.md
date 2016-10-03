@@ -1,3 +1,4 @@
+Note: this version has been tested against openlava 3.1.3. There are changes in the constants files in newer versions of openlava that mean this will not build against them.
 
 lslib
 *****
